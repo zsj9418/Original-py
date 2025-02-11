@@ -37,11 +37,34 @@ jobs:
       env:
         WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK }}
       run: |
-        UPDATE_CONTENT=$(tail -n 10 nodes.txt | sed ':a;N;$!ba;s/\n/\\n/g')
-        MESSAGE='{
+        # 获取北京时间并格式化为中文时间戳
+        UPDATE_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+        
+        # 从日志文件获取最新新增节点数
+        NEW_NODES=$(tail -n 4 update_history.md | grep -oP '新增节点数: \K\d+' | tail -1)
+        
+        # 获取最新节点（最多5条）
+        LATEST_NODES=$(tail -n 5 nodes.txt | sed 's/"/\\"/g')
+        
+        # 构建JSON消息体
+        MESSAGE_JSON=$(cat <<EOF
+        {
           "msgtype": "markdown",
           "markdown": {
-            "content": "**节点更新通知**\n> 时间: `$(TZ=Asia/Shanghai date +"%Y-%m-%d %H:%M:%S")`\n> 新增节点数: `$(git diff --stat HEAD~1 | grep nodes.txt | awk "{print \$3}")`\n\n最新节点预览:\n```\n'$UPDATE_CONTENT'\n```"
+            "content": "**🔄 节点更新通知**\n
+            > **更新时间**: \`${UPDATE_TIME}\`\n
+            > **新增节点数**: \`${NEW_NODES:-0}\`\n
+            > **节点总数**: \`$(wc -l < nodes.txt)\`\n\n
+            **最新节点列表**:\n
+            \`\`\`\n
+            ${LATEST_NODES}
+            \`\`\`"
           }
-        }'
-        curl -X POST $WEBHOOK_URL -H "Content-Type: application/json" -d "$MESSAGE"
+        }
+        EOF
+        )
+        
+        # 发送请求
+        curl -X POST "$WEBHOOK_URL" \
+          -H "Content-Type: application/json" \
+          -d "$MESSAGE_JSON"
