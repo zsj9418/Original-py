@@ -6,148 +6,96 @@ import pyaes
 import binascii
 from datetime import datetime
 from collections import deque
-import yaml
-from git import Repo
 
-# 全局配置
-CONFIG = {
-    'MAX_HISTORY': 4,  # 保留4个更新周期
-    'HISTORY_FILE': "nodes.txt",
-    'COMBINED_FILE': "combined_nodes.txt",
-    'BATCH_FILE': "history_batches.json",
-    'LOG_FILE': "update_history.md",
-    'REPO_URL': "https://github.com/Alvin9999/pac2",
-    'CLONE_PATH': "temp_repo",
-    'TIMEZONE': 'Asia/Shanghai',
-    'WECHAT_WEBHOOK': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key'  # 替换为你的企业微信机器人Webhook
-}
+# 设置时区为中国时间
+os.environ['TZ'] = 'Asia/Shanghai'
 
-# 设置时区
-os.environ['TZ'] = CONFIG['TIMEZONE']
+print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X͜͡T͜͡R͜͡A͜͡C͜͡T͜͡ ͜͡S͜͡S͜͡ ͜͡N͜͡O͜͡D͜͡E͜͡")
+print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
+print("Author : 𝐼𝑢")
+print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
+print("Version: 1.0")
+print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
+print("𝐼𝑢:")
 
-# 初始化文件
-def initialize_files():
-    """确保所有需要的文件都存在"""
-    for file in [CONFIG['HISTORY_FILE'], CONFIG['COMBINED_FILE'], CONFIG['LOG_FILE']]:
-        if not os.path.exists(file):
-            with open(file, 'w') as f:
-                f.write("")
+# 历史文件维护配置
+MAX_HISTORY = 4
+HISTORY_FILE = "nodes.txt"
+LOG_FILE = "update_history.md"
 
-# 处理GitHub仓库
-def process_github_repo():
-    """从GitHub仓库中提取节点信息"""
-    try:
-        # 克隆仓库
-        if os.path.exists(CONFIG['CLONE_PATH']):
-            repo = Repo(CONFIG['CLONE_PATH'])
-            repo.remotes.origin.pull()
-        else:
-            repo = Repo.clone_from(CONFIG['REPO_URL'], CONFIG['CLONE_PATH'])
-
-        # 假设节点信息在仓库的某个文件中
-        nodes_file = os.path.join(CONFIG['CLONE_PATH'], "config.json")
-        if not os.path.exists(nodes_file):
-            raise Exception(f"节点文件 {nodes_file} 不存在")
-
-        with open(nodes_file, 'r') as f:
-            nodes = f.readlines()
-
-        # 清理节点数据
-        nodes = [node.strip() for node in nodes if node.strip()]
-        print(f"从仓库中提取的节点数据：{nodes}")  # 调试信息
-        return nodes
-    except Exception as e:
-        raise Exception(f"处理GitHub仓库时出错: {str(e)}")
-
-# 维护历史记录
 def maintain_history(new_nodes):
-    """维护历史记录并返回新增节点数"""
-    try:
-        # 读取现有节点
-        if os.path.exists(CONFIG['HISTORY_FILE']):
-            with open(CONFIG['HISTORY_FILE'], 'r') as f:
-                existing_nodes = f.readlines()
-            existing_nodes = [node.strip() for node in existing_nodes if node.strip()]
-        else:
-            existing_nodes = []
+    # 读取现有历史
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r") as f:
+            history = deque(f.read().splitlines(), MAX_HISTORY*20)
+    else:
+        history = deque(maxlen=MAX_HISTORY*20)
 
-        # 计算新增节点
-        added_nodes = list(set(new_nodes) - set(existing_nodes))
+    # 去重处理
+    unique_nodes = set(history)
+    added_nodes = [n for n in new_nodes if n not in unique_nodes]
+    
+    # 更新历史记录
+    history.extend(added_nodes)
+    
+    # 维护循环缓冲区
+    if len(history) > MAX_HISTORY*20:
+        history = deque(list(history)[-(MAX_HISTORY*20):], MAX_HISTORY*20)
+    
+    # 写入文件
+    with open(HISTORY_FILE, "w") as f:
+        f.write("\n".join(history))
+    
+    return added_nodes
 
-        # 更新节点文件
-        with open(CONFIG['HISTORY_FILE'], 'w') as f:
-            f.write("\n".join(new_nodes))
+def update_log(status, count):
+    log_entry = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    log_entry += f"- Status: {'Success' if status else 'Failed'}\n"
+    if status:
+        log_entry += f"- New nodes added: {count}\n"
+        log_entry += f"- Total nodes: {count + len(open(HISTORY_FILE).readlines())}\n"
+    
+    with open(LOG_FILE, "a") as f:
+        f.write(log_entry + "\n")
 
-        return added_nodes
-    except Exception as e:
-        raise Exception(f"维护历史记录时出错: {str(e)}")
+a = 'http://api.skrapp.net/api/serverlist'
+b = {
+    'accept': '/',
+    'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
+    'appversion': '1.3.1',
+    'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
+    'content-type': 'application/x-www-form-urlencoded',
+    'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
+}
+c = {'data': '4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed'}
+d = b'65151f8d966bf596'
+e = b'88ca0f0ea1ecf975'
 
-# 更新日志
-def update_log(success, added_count):
-    """更新日志文件"""
-    try:
-        log_entry = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        log_entry += f"**状态:** {'成功' if success else '失败'}\n"
-        log_entry += f"**新增节点数:** {added_count}\n\n"
+def f(g, d, e):
+    h = pyaes.AESModeOfOperationCBC(d, iv=e)
+    i = b''.join(h.decrypt(g[j:j+16]) for j in range(0, len(g), 16))
+    return i[:-i[-1]]
 
-        with open(CONFIG['LOG_FILE'], 'a') as f:
-            f.write(log_entry)
-    except Exception as e:
-        raise Exception(f"更新日志时出错: {str(e)}")
+j = requests.post(a, headers=b, data=c)
 
-# 发送企业微信通知
-def send_wechat_notification(message):
-    """发送企业微信通知"""
-    try:
-        data = {
-            "msgtype": "text",
-            "text": {
-                "content": message
-            }
-        }
-        response = requests.post(CONFIG['WECHAT_WEBHOOK'], json=data)
-        response.raise_for_status()
-    except Exception as e:
-        raise Exception(f"发送企业微信通知时出错: {str(e)}")
-
-# 主函数
-def main():
-    """主函数"""
-    try:
-        # 初始化文件
-        initialize_files()
-
-        # 拉取GitHub仓库配置
-        github_nodes = process_github_repo()
-        new_nodes = github_nodes
-
-        # 去重处理
-        seen = set()
-        dedup_nodes = []
-        for node in new_nodes:
-            key = node.split('#')[0]  # 根据节点主体去重
-            if key not in seen:
-                seen.add(key)
-                dedup_nodes.append(node)
-        new_nodes = dedup_nodes
-
-        # 维护历史记录
-        added_count = len(maintain_history(new_nodes))
-
-        # 更新日志
-        update_log(True, added_count)
-
-        # 发送企业微信通知
-        if added_count > 0:
-            send_wechat_notification(f"节点更新成功！新增节点数: {added_count}")
-        else:
-            send_wechat_notification("节点更新完成，无新增节点。")
-
-        print(f"更新成功！新增节点数: {added_count}")
-    except Exception as e:
-        update_log(False, 0)
-        send_wechat_notification(f"节点更新失败！错误信息: {str(e)}")
-        print(f"更新失败: {str(e)}")
-
-if __name__ == "__main__":
-    main()
+if j.status_code == 200:
+    k = j.text.strip()
+    l = binascii.unhexlify(k)
+    m = f(l, d, e)
+    n = json.loads(m)
+    
+    # 生成新节点
+    new_nodes = []
+    for o in n['data']:
+        p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
+        q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
+        r = f"ss://{q}#{o['title']}"
+        new_nodes.append(r)
+        print(r)
+    
+    # 维护历史记录
+    added_count = len(maintain_history(new_nodes))
+    update_log(True, added_count)
+else:
+    update_log(False, 0)
+    print(f"Error: HTTP {j.status_code}")
