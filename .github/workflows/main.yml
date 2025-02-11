@@ -24,6 +24,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyaes requests pyyaml gitpython
 
+    - name: Initialize files if missing
+      run: |
+        touch nodes.txt combined_nodes.txt update_history.md
+
     - name: Run update script
       run: python py.py
 
