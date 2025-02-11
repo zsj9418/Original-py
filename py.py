@@ -1,4 +1,5 @@
 import os
+import time  # 新增time模块
 import requests
 import base64
 import json
@@ -7,8 +8,9 @@ import binascii
 from datetime import datetime
 from collections import deque
 
-# 设置时区为中国时间
+# 强制设置中国时区
 os.environ['TZ'] = 'Asia/Shanghai'
+time.tzset()  # 应用时区设置
 
 print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X͜͡T͜͡R͜͡A͜͡C͜͡T͜͡ ͜͡S͜͡S͜͡ ͜͡N͜͡O͜͡D͜͡E͜͡")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
@@ -18,44 +20,49 @@ print("Version: 1.0")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
-# 历史文件维护配置
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
 
 def maintain_history(new_nodes):
-    # 读取现有历史
     if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r") as f:
+        with open(HISTORY_FILE, "r", encoding='utf-8') as f:
             history = deque(f.read().splitlines(), MAX_HISTORY*20)
     else:
         history = deque(maxlen=MAX_HISTORY*20)
 
-    # 去重处理
     unique_nodes = set(history)
     added_nodes = [n for n in new_nodes if n not in unique_nodes]
     
-    # 更新历史记录
     history.extend(added_nodes)
     
-    # 维护循环缓冲区
     if len(history) > MAX_HISTORY*20:
         history = deque(list(history)[-(MAX_HISTORY*20):], MAX_HISTORY*20)
     
-    # 写入文件
-    with open(HISTORY_FILE, "w") as f:
+    with open(HISTORY_FILE, "w", encoding='utf-8') as f:
         f.write("\n".join(history))
     
     return added_nodes
 
 def update_log(status, count):
-    log_entry = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-    log_entry += f"- Status: {'Success' if status else 'Failed'}\n"
-    if status:
-        log_entry += f"- New nodes added: {count}\n"
-        log_entry += f"- Total nodes: {count + len(open(HISTORY_FILE).readlines())}\n"
+    # 获取格式化的北京时间
+    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_entry = f"## {log_time}\n"
+    log_entry += f"- 状态: {'成功' if status else '失败'}\n"
     
-    with open(LOG_FILE, "a") as f:
+    if status:
+        # 计算真实总数
+        total = 0
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                total = len(f.readlines())
+        
+        log_entry += f"- 新增节点数: {count}\n"
+        log_entry += f"- 累计节点总数: {total}\n"
+    else:
+        log_entry += "- 错误详情: 接口请求失败\n"
+    
+    with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
 
 a = 'http://api.skrapp.net/api/serverlist'
@@ -76,26 +83,31 @@ def f(g, d, e):
     i = b''.join(h.decrypt(g[j:j+16]) for j in range(0, len(g), 16))
     return i[:-i[-1]]
 
-j = requests.post(a, headers=b, data=c)
+try:
+    j = requests.post(a, headers=b, data=c, timeout=15)
+    
+    if j.status_code == 200:
+        k = j.text.strip()
+        l = binascii.unhexlify(k)
+        m = f(l, d, e)
+        n = json.loads(m)
+        
+        # 生成新节点
+        new_nodes = []
+        for o in n['data']:
+            p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
+            q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
+            r = f"ss://{q}#{o['title']}"
+            new_nodes.append(r)
+            print(r)
+        
+        # 维护历史记录
+        added_count = len(maintain_history(new_nodes))
+        update_log(True, added_count)
+    else:
+        update_log(False, 0)
+        print(f"请求失败，HTTP状态码: {j.status_code}")
 
-if j.status_code == 200:
-    k = j.text.strip()
-    l = binascii.unhexlify(k)
-    m = f(l, d, e)
-    n = json.loads(m)
-    
-    # 生成新节点
-    new_nodes = []
-    for o in n['data']:
-        p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
-        q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
-        r = f"ss://{q}#{o['title']}"
-        new_nodes.append(r)
-        print(r)
-    
-    # 维护历史记录
-    added_count = len(maintain_history(new_nodes))
-    update_log(True, added_count)
-else:
+except Exception as ex:
     update_log(False, 0)
-    print(f"Error: HTTP {j.status_code}")
+    print(f"发生异常: {str(ex)}")
