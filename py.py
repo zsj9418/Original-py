@@ -93,7 +93,7 @@ def parse_config(content, protocol):
             auth = config.get('auth', {}).get('password', 'default-auth')
             server = config.get('server', '0.0.0.0')
             port = config.get('port', 443)
-            up = config.get('up_mbps', 1000)
+            up = config.get('up_mbps', 500)
             down = config.get('down_mbps', 1000)
             params = {
                 'upmbps': up,
