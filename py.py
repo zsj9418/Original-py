@@ -1,5 +1,4 @@
 import os
-import time  # 新增time模块
 import requests
 import base64
 import json
@@ -7,107 +6,189 @@ import pyaes
 import binascii
 from datetime import datetime
 from collections import deque
+import yaml
+from git import Repo
 
-# 强制设置中国时区
-os.environ['TZ'] = 'Asia/Shanghai'
-time.tzset()  # 应用时区设置
+# 全局配置
+CONFIG = {
+    'MAX_HISTORY': 4,  # 保留4个更新周期
+    'HISTORY_FILE': "nodes.txt",
+    'COMBINED_FILE': "combined_nodes.txt",
+    'BATCH_FILE': "history_batches.json",
+    'LOG_FILE': "update_history.md",
+    'REPO_URL': "https://github.com/Alvin9999/pac2",
+    'CLONE_PATH': "temp_repo",
+    'TIMEZONE': 'Asia/Shanghai',
+    'WECHAT_WEBHOOK': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key'  # 替换为你的企业微信机器人Webhook
+}
+
+# 设置时区
+os.environ['TZ'] = CONFIG['TIMEZONE']
 
 print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X͜͡T͜͡R͜͡A͜͡C͜͡T͜͡ ͜͡S͜͡S͜͡ ͜͡N͜͡O͜͡D͜͡E͜͡")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 1.0")
+print("Version: 2.0 (GitHub Auto)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
-print("𝐼𝑢:")
 
-MAX_HISTORY = 4
-HISTORY_FILE = "nodes.txt"
-LOG_FILE = "update_history.md"
+# 企业微信通知模块
+def send_wechat_notification(message):
+    """发送企业微信通知"""
+    headers = {'Content-Type': 'application/json'}
+    data = {
+        "msgtype": "text",
+        "text": {
+            "content": message
+        }
+    }
+    try:
+        response = requests.post(CONFIG['WECHAT_WEBHOOK'], headers=headers, json=data)
+        if response.status_code != 200:
+            print(f"Failed to send WeChat notification: {response.text}")
+    except Exception as e:
+        print(f"Error sending WeChat notification: {str(e)}")
 
+# GitHub仓库处理模块
+def process_github_repo():
+    """从GitHub仓库拉取并处理配置"""
+    nodes = []
+    try:
+        # 克隆/更新仓库
+        if os.path.exists(CONFIG['CLONE_PATH']):
+            repo = Repo(CONFIG['CLONE_PATH'])
+            repo.remotes.origin.pull()
+        else:
+            Repo.clone_from(CONFIG['REPO_URL'], CONFIG['CLONE_PATH'])
+
+        # 处理目标目录
+        target_dirs = {
+            'hysteria': process_hysteria_config,
+            'hysteria2': process_hysteria_config,
+            'juicity': process_juicity_config,
+            'mieru': process_mieru_config,
+            'singbox': process_singbox_config
+        }
+
+        # 遍历目录
+        for root, dirs, files in os.walk(CONFIG['CLONE_PATH']):
+            for dir_name in target_dirs:
+                if dir_name in root:
+                    for file in files:
+                        if file.endswith(('.json', '.yaml', '.yml')):
+                            file_path = os.path.join(root, file)
+                            try:
+                                with open(file_path, 'r') as f:
+                                    config = yaml.safe_load(f) if file.endswith(('.yaml', '.yml')) else json.load(f)
+                                nodes.extend(target_dirs[dir_name](config))
+                            except Exception as e:
+                                print(f"Error processing {file_path}: {str(e)}")
+    except Exception as e:
+        print(f"Error processing GitHub repo: {str(e)}")
+    return nodes
+
+# Hysteria配置处理
+def process_hysteria_config(config):
+    """处理Hysteria配置"""
+    nodes = []
+    if 'server' in config and 'auth' in config:
+        base_url = f"hy2://{config['auth']}@{config['server']}:{config.get('port', 443)}"
+        params = {
+            'obfs': config.get('obfs'),
+            'alpn': ','.join(config.get('alpn', [])),
+            'sni': config.get('sni')
+        }
+        query = '&'.join([f"{k}={v}" for k, v in params.items() if v])
+        nodes.append(f"{base_url}?{query}#Hysteria2")
+    return nodes
+
+# 其他协议处理函数（示例）
+def process_juicity_config(config):
+    """处理Juicity配置"""
+    return []
+
+def process_mieru_config(config):
+    """处理Mieru配置"""
+    return []
+
+def process_singbox_config(config):
+    """处理Singbox配置"""
+    return []
+
+# 历史记录维护模块
 def maintain_history(new_nodes):
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding='utf-8') as f:
-            history = deque(f.read().splitlines(), MAX_HISTORY*20)
+    """维护历史记录"""
+    # 读取现有历史
+    if os.path.exists(CONFIG['HISTORY_FILE']):
+        with open(CONFIG['HISTORY_FILE'], "r") as f:
+            history = deque(f.read().splitlines(), CONFIG['MAX_HISTORY'] * 20)
     else:
-        history = deque(maxlen=MAX_HISTORY*20)
+        history = deque(maxlen=CONFIG['MAX_HISTORY'] * 20)
 
+    # 去重处理
     unique_nodes = set(history)
     added_nodes = [n for n in new_nodes if n not in unique_nodes]
-    
+
+    # 更新历史记录
     history.extend(added_nodes)
-    
-    if len(history) > MAX_HISTORY*20:
-        history = deque(list(history)[-(MAX_HISTORY*20):], MAX_HISTORY*20)
-    
-    with open(HISTORY_FILE, "w", encoding='utf-8') as f:
+
+    # 维护循环缓冲区
+    if len(history) > CONFIG['MAX_HISTORY'] * 20:
+        history = deque(list(history)[-(CONFIG['MAX_HISTORY'] * 20):], CONFIG['MAX_HISTORY'] * 20)
+
+    # 写入文件
+    with open(CONFIG['HISTORY_FILE'], "w") as f:
         f.write("\n".join(history))
-    
+
     return added_nodes
 
+# 更新日志模块
 def update_log(status, count):
-    # 获取格式化的北京时间
-    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_entry = f"## {log_time}\n"
-    log_entry += f"- 状态: {'成功' if status else '失败'}\n"
-    
+    """更新日志"""
+    log_entry = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    log_entry += f"- Status: {'Success' if status else 'Failed'}\n"
     if status:
-        # 计算真实总数
-        total = 0
-        if os.path.exists(HISTORY_FILE):
-            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                total = len(f.readlines())
-        
-        log_entry += f"- 新增节点数: {count}\n"
-        log_entry += f"- 累计节点总数: {total}\n"
-    else:
-        log_entry += "- 错误详情: 接口请求失败\n"
-    
-    with open(LOG_FILE, "a", encoding='utf-8') as f:
+        log_entry += f"- New nodes added: {count}\n"
+        log_entry += f"- Total nodes: {count + len(open(CONFIG['HISTORY_FILE']).readlines())}\n"
+
+    with open(CONFIG['LOG_FILE'], "a") as f:
         f.write(log_entry + "\n")
 
-a = 'http://api.skrapp.net/api/serverlist'
-b = {
-    'accept': '/',
-    'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
-    'appversion': '1.3.1',
-    'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
-    'content-type': 'application/x-www-form-urlencoded',
-    'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
-}
-c = {'data': '4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed'}
-d = b'65151f8d966bf596'
-e = b'88ca0f0ea1ecf975'
+# 主函数
+def main():
+    """主函数"""
+    try:
+        # 拉取GitHub仓库配置
+        github_nodes = process_github_repo()
+        new_nodes = github_nodes
 
-def f(g, d, e):
-    h = pyaes.AESModeOfOperationCBC(d, iv=e)
-    i = b''.join(h.decrypt(g[j:j+16]) for j in range(0, len(g), 16))
-    return i[:-i[-1]]
+        # 去重处理
+        seen = set()
+        dedup_nodes = []
+        for node in new_nodes:
+            key = node.split('#')[0]  # 根据节点主体去重
+            if key not in seen:
+                seen.add(key)
+                dedup_nodes.append(node)
+        new_nodes = dedup_nodes
 
-try:
-    j = requests.post(a, headers=b, data=c, timeout=15)
-    
-    if j.status_code == 200:
-        k = j.text.strip()
-        l = binascii.unhexlify(k)
-        m = f(l, d, e)
-        n = json.loads(m)
-        
-        # 生成新节点
-        new_nodes = []
-        for o in n['data']:
-            p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
-            q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
-            r = f"ss://{q}#{o['title']}"
-            new_nodes.append(r)
-            print(r)
-        
         # 维护历史记录
         added_count = len(maintain_history(new_nodes))
-        update_log(True, added_count)
-    else:
-        update_log(False, 0)
-        print(f"请求失败，HTTP状态码: {j.status_code}")
 
-except Exception as ex:
-    update_log(False, 0)
-    print(f"发生异常: {str(ex)}")
+        # 更新日志
+        update_log(True, added_count)
+
+        # 发送企业微信通知
+        if added_count > 0:
+            send_wechat_notification(f"节点更新成功！新增节点数: {added_count}")
+        else:
+            send_wechat_notification("节点更新完成，无新增节点。")
+
+        print(f"更新成功！新增节点数: {added_count}")
+    except Exception as e:
+        update_log(False, 0)
+        send_wechat_notification(f"节点更新失败！错误信息: {str(e)}")
+        print(f"更新失败: {str(e)}")
+
+if __name__ == "__main__":
+    main()
