@@ -93,8 +93,8 @@ def parse_config(content, protocol):
             auth = config.get('auth', {}).get('password', 'default-auth')
             server = config.get('server', '0.0.0.0')
             port = config.get('port', 443)
-            up = config.get('up_mbps', 500)
-            down = config.get('down_mbps', 1000)
+            up = config.get('up_mbps', 100)
+            down = config.get('down_mbps', 100)
             params = {
                 'upmbps': up,
                 'downmbps': down,
@@ -106,8 +106,8 @@ def parse_config(content, protocol):
             auth_str = config.get('auth_str', 'default-auth')
             server = config.get('server', '0.0.0.0')
             port = config.get('port', 443)
-            up = config.get('up_mbps', 100)
-            down = config.get('down_mbps', 500)
+            up = config.get('up_mbps', 10)
+            down = config.get('down_mbps', 50)
             params = {
                 'protocol': config.get('protocol', 'udp'),
                 'upmbps': up,
