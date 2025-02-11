@@ -14,7 +14,7 @@ CONFIG = {
     'MAX_HISTORY': 4,  # 保留4个更新周期
     'HISTORY_FILE': "nodes.txt",
     'COMBINED_FILE': "combined_nodes.txt",
-    'BATCH_FILE': "history_batches.json", # This is not used in the provided code, might be for future use
+    'BATCH_FILE': "history_batches.json",
     'LOG_FILE': "update_history.md",
     'REPO_URL': "https://github.com/Alvin9999/pac2",
     'CLONE_PATH': "temp_repo",
@@ -33,120 +33,78 @@ def initialize_files():
             with open(file, 'w') as f:
                 f.write("")
 
+# 处理GitHub仓库
 def process_github_repo():
-    """
-    从GitHub仓库拉取节点信息。
-    """
-    repo_url = CONFIG['REPO_URL']
-    clone_path = CONFIG['CLONE_PATH']
-    nodes_file_path = os.path.join(clone_path, 'nodes.txt')
-
+    """从GitHub仓库中提取节点信息"""
     try:
-        if os.path.exists(clone_path):
-            repo = Repo(clone_path)
-            repo.remotes.origin.pull() # 更新仓库
+        # 克隆仓库
+        if os.path.exists(CONFIG['CLONE_PATH']):
+            repo = Repo(CONFIG['CLONE_PATH'])
+            repo.remotes.origin.pull()
         else:
-            Repo.clone_from(repo_url, clone_path) # 克隆仓库
+            repo = Repo.clone_from(CONFIG['REPO_URL'], CONFIG['CLONE_PATH'])
 
-        with open(nodes_file_path, 'r') as f:
-            github_nodes = [line.strip() for line in f if line.strip()] # 读取nodes.txt，去除空行
-        return github_nodes
+        # 假设节点信息在仓库的某个文件中
+        nodes_file = os.path.join(CONFIG['CLONE_PATH'], "nodes.txt")
+        with open(nodes_file, 'r') as f:
+            nodes = f.readlines()
+
+        # 清理节点数据
+        nodes = [node.strip() for node in nodes if node.strip()]
+        return nodes
     except Exception as e:
-        print(f"Error processing GitHub repo: {e}")
-        return []
+        raise Exception(f"处理GitHub仓库时出错: {str(e)}")
 
-def update_log(success, added_count):
-    """
-    更新更新日志文件。
-    """
-    log_file = CONFIG['LOG_FILE']
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z%z")
-    status = "成功" if success else "失败"
-    log_entry = f"**{now}**: 节点更新{status}，新增节点数: {added_count}\n"
-
-    if not success:
-        import traceback
-        log_entry += "```\n" + traceback.format_exc() + "\n```\n"
-
-    with open(log_file, 'a') as f:
-        f.write(log_entry)
-
+# 维护历史记录
 def maintain_history(new_nodes):
-    """
-    维护节点历史记录，并返回新增节点。
-    """
-    history_file = CONFIG['HISTORY_FILE']
-    combined_file = CONFIG['COMBINED_FILE']
-    max_history = CONFIG['MAX_HISTORY']
-
-    all_history_nodes = []
-    if os.path.exists(history_file):
-        with open(history_file, 'r') as f:
-            history_data = f.readlines()
-            # 假设历史记录文件每组节点之间用空行分隔
-            current_history_group = []
-            for line in history_data:
-                line = line.strip()
-                if line:
-                    current_history_group.append(line)
-                else:
-                    if current_history_group:
-                        all_history_nodes.append(current_history_group)
-                        current_history_group = []
-            if current_history_group: # 处理最后可能没有空行分隔的历史组
-                all_history_nodes.append(current_history_group)
-
-    all_history_nodes.insert(0, new_nodes) # 将最新节点添加到历史记录的开头
-    if len(all_history_nodes) > max_history:
-        all_history_nodes = all_history_nodes[:max_history] # 限制历史记录数量
-
-    added_nodes = []
-    if all_history_nodes and len(all_history_nodes) > 1:
-        previous_nodes = set(all_history_nodes[1])
-        current_nodes = set(all_history_nodes[0])
-        added_nodes = list(current_nodes - previous_nodes)
-
-    with open(history_file, 'w') as f:
-        for i, node_group in enumerate(all_history_nodes):
-            for node in node_group:
-                f.write(node + '\n')
-            if i < len(all_history_nodes) - 1: # 除了最后一组，每组后加一个空行分隔
-                f.write('\n')
-
-    # 更新 combined_nodes.txt - 合并所有历史记录中的节点，并去重
-    combined_nodes = set()
-    for node_group in all_history_nodes:
-        combined_nodes.update(node_group)
-    with open(combined_file, 'w') as f:
-        for node in combined_nodes:
-            f.write(node + '\n')
-
-    return added_nodes
-
-
-def send_wechat_notification(message):
-    """
-    发送企业微信通知。
-    """
-    webhook_url = CONFIG['WECHAT_WEBHOOK']
-    if not webhook_url or webhook_url == 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your_webhook_key':
-        print("请配置企业微信Webhook URL 或取消微信通知。")
-        return
-
-    headers = {'Content-Type': 'application/json'}
-    data = {
-        "msgtype": "markdown",
-        "markdown": {
-            "content": message
-        }
-    }
+    """维护历史记录并返回新增节点数"""
     try:
-        response = requests.post(webhook_url, headers=headers, json=data)
-        response.raise_for_status() # 检查请求是否成功
-        print("企业微信通知发送成功！")
-    except requests.exceptions.RequestException as e:
-        print(f"企业微信通知发送失败: {e}")
+        # 读取现有节点
+        if os.path.exists(CONFIG['HISTORY_FILE']):
+            with open(CONFIG['HISTORY_FILE'], 'r') as f:
+                existing_nodes = f.readlines()
+            existing_nodes = [node.strip() for node in existing_nodes if node.strip()]
+        else:
+            existing_nodes = []
 
+        # 计算新增节点
+        added_nodes = list(set(new_nodes) - set(existing_nodes))
+
+        # 更新节点文件
+        with open(CONFIG['HISTORY_FILE'], 'w') as f:
+            f.write("\n".join(new_nodes))
+
+        return added_nodes
+    except Exception as e:
+        raise Exception(f"维护历史记录时出错: {str(e)}")
+
+# 更新日志
+def update_log(success, added_count):
+    """更新日志文件"""
+    try:
+        log_entry = f"## {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        log_entry += f"**状态:** {'成功' if success else '失败'}\n"
+        log_entry += f"**新增节点数:** {added_count}\n\n"
+
+        with open(CONFIG['LOG_FILE'], 'a') as f:
+            f.write(log_entry)
+    except Exception as e:
+        raise Exception(f"更新日志时出错: {str(e)}")
+
+# 发送企业微信通知
+def send_wechat_notification(message):
+    """发送企业微信通知"""
+    try:
+        data = {
+            "msgtype": "text",
+            "text": {
+                "content": message
+            }
+        }
+        response = requests.post(CONFIG['WECHAT_WEBHOOK'], json=data)
+        response.raise_for_status()
+    except Exception as e:
+        raise Exception(f"发送企业微信通知时出错: {str(e)}")
 
 # 主函数
 def main():
@@ -170,8 +128,7 @@ def main():
         new_nodes = dedup_nodes
 
         # 维护历史记录
-        added_nodes = maintain_history(new_nodes)
-        added_count = len(added_nodes)
+        added_count = len(maintain_history(new_nodes))
 
         # 更新日志
         update_log(True, added_count)
