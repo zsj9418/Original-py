@@ -45,12 +45,16 @@ def process_github_repo():
             repo = Repo.clone_from(CONFIG['REPO_URL'], CONFIG['CLONE_PATH'])
 
         # 假设节点信息在仓库的某个文件中
-        nodes_file = os.path.join(CONFIG['CLONE_PATH'], "nodes.txt")
+        nodes_file = os.path.join(CONFIG['CLONE_PATH'], "config.json")
+        if not os.path.exists(nodes_file):
+            raise Exception(f"节点文件 {nodes_file} 不存在")
+
         with open(nodes_file, 'r') as f:
             nodes = f.readlines()
 
         # 清理节点数据
         nodes = [node.strip() for node in nodes if node.strip()]
+        print(f"从仓库中提取的节点数据：{nodes}")  # 调试信息
         return nodes
     except Exception as e:
         raise Exception(f"处理GitHub仓库时出错: {str(e)}")
