@@ -8,7 +8,7 @@ import binascii
 import yaml
 from datetime import datetime
 from collections import deque
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 
 # 强制设置中国时区
 os.environ['TZ'] = 'Asia/Shanghai'
@@ -18,7 +18,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.1")  # 更新版本号
+print("Version: 2.2")  # 更新版本号
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -89,38 +89,58 @@ def parse_config(content, protocol):
         config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
         
         if protocol == 'hysteria2':
-            auth = config.get('auth', 'default-auth')
+            # 适配新版Hysteria2配置结构
+            auth = config.get('auth', {}).get('password', 'default-auth')
             server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)  # 默认端口
-            nodes.append(f"hy2://{auth}@{server}:{port}")
+            port = config.get('port', 443)
+            up = config.get('up_mbps', 1000)
+            down = config.get('down_mbps', 1000)
+            params = {
+                'upmbps': up,
+                'downmbps': down,
+                'insecure': int(config.get('tls', {}).get('insecure', 0))
+            }
+            nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
+            
         elif protocol == 'hysteria':
             auth_str = config.get('auth_str', 'default-auth')
             server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)  # 默认端口
-            nodes.append(f"hy://{auth_str}@{server}:{port}")
+            port = config.get('port', 443)
+            up = config.get('up_mbps', 100)
+            down = config.get('down_mbps', 500)
+            params = {
+                'protocol': config.get('protocol', 'udp'),
+                'upmbps': up,
+                'downmbps': down,
+                'insecure': int(config.get('insecure', 0))
+            }
+            nodes.append(f"hy://{auth_str}@{server}:{port}?{urlencode(params)}")
+            
         elif protocol == 'juicity':
             users = config.get('users', [])
             if not isinstance(users, list):
                 users = [users]
             server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)  # 默认端口
+            port = config.get('port', 443)
             for user in users:
                 uuid = user.get('uuid', 'default-uuid')
                 nodes.append(f"juicity://{uuid}@{server}:{port}")
+                
         elif protocol == 'mieru':
             username = config.get('username', 'default-user')
             password = config.get('password', 'default-pass')
             server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)  # 默认端口
+            port = config.get('port', 443)
             nodes.append(f"mieru://{username}:{password}@{server}:{port}")
+            
         elif protocol == 'singbox':
             inbounds = config.get('inbounds', [])
             for inbound in inbounds:
                 if inbound.get('type') == 'vless':
                     server = inbound.get('server', '0.0.0.0')
-                    port = inbound.get('port', 443)  # 默认端口
+                    port = inbound.get('port', 443)
                     user_id = inbound.get('users', [{}])[0].get('id', 'default-id')
-                    security = inbound.get('tls', 'none')
+                    security = 'tls' if inbound.get('tls') else 'none'
                     network = inbound.get('network', 'tcp')
                     params = f"security={security}&type={network}"
                     nodes.append(f"singbox://{user_id}@{server}:{port}?{params}")
@@ -128,7 +148,7 @@ def parse_config(content, protocol):
         print(f"Error parsing {protocol} config: {str(e)}")
     return nodes
 
-# 原有解密逻辑
+# 原有解密逻辑保持不变
 a = 'http://api.skrapp.net/api/serverlist'
 b = {
     'accept': '/',
