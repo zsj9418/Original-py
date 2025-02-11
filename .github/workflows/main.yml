@@ -1,0 +1,47 @@
+name: Update PY
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'
+      timezone: Asia/Shanghai
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: pip install pyaes requests
+
+    - name: Run update script
+      run: python py.py
+
+    - name: Commit and push changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "actions@github.com"
+        git add nodes.txt update_history.md
+        git commit -m "Auto update: $(date +'%Y-%m-%d %H:%M:%S')"
+        git push
+
+    - name: WeChat Work Notification
+      env:
+        WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK }}
+      run: |
+        UPDATE_CONTENT=$(tail -n 10 nodes.txt | sed ':a;N;$!ba;s/\n/\\n/g')
+        MESSAGE='{
+          "msgtype": "markdown",
+          "markdown": {
+            "content": "**节点更新通知**\n> 时间: `$(date +"%Y-%m-%d %H:%M:%S")`\n> 新增节点数: `$(git diff --stat HEAD~1 | grep nodes.txt | awk "{print \$3}")`\n\n最新节点预览:\n```\n'$UPDATE_CONTENT'\n```"
+          }
+        }'
+        curl -X POST $WEBHOOK_URL -H "Content-Type: application/json" -d "$MESSAGE"
