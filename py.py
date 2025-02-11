@@ -1,12 +1,14 @@
 import os
-import time  # 新增time模块
+import time
 import requests
 import base64
 import json
 import pyaes
 import binascii
+import yaml  # 新增yaml依赖
 from datetime import datetime
 from collections import deque
+from urllib.parse import urljoin  # 新增URL处理
 
 # 强制设置中国时区
 os.environ['TZ'] = 'Asia/Shanghai'
@@ -16,9 +18,52 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 1.0")
+print("Version: 2.0")  # 更新版本号
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
+
+# 新增配置
+GITHUB_REPO = "https://api.github.com/repos/Alvin9999/pac2/contents/"
+TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'mieru', 'singbox']
+
+def fetch_github_configs():
+    nodes = []
+    for dir_path in TARGET_DIRS:
+        try:
+            response = requests.get(urljoin(GITHUB_REPO, dir_path))
+            if response.status_code == 200:
+                contents = response.json()
+                for item in contents:
+                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
+                        file_content = requests.get(item['download_url']).text
+                        nodes += parse_config(file_content, dir_path)
+        except Exception as e:
+            print(f"Error fetching {dir_path}: {str(e)}")
+    return nodes
+
+def parse_config(content, protocol):
+    try:
+        nodes = []
+        config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
+        
+        if protocol == 'hysteria2':
+            nodes.append(f"hy2://{config['auth']}@{config['server']}:{config['port']}")
+        elif protocol == 'hysteria':
+            nodes.append(f"hy://{config['auth_str']}@{config['server']}:{config['port']}")
+        elif protocol == 'juicity':
+            users = config['users'] if isinstance(config['users'], list) else [config['users']]
+            for user in users:
+                nodes.append(f"juicity://{user['uuid']}@{config['server']}:{config['port']}")
+        elif protocol == 'mieru':
+            nodes.append(f"mieru://{config['username']}:{config['password']}@{config['server']}:{config['port']}")
+        elif protocol == 'singbox':
+            for inbound in config['inbounds']:
+                if inbound['type'] == 'vless':
+                    params = f"security={inbound['tls']}&type={inbound['network']}"
+                    nodes.append(f"singbox://{inbound['users'][0]['id']}@{inbound['server']}:{inbound['port']}?{params}")
+    except Exception as e:
+        print(f"Error parsing {protocol} config: {str(e)}")
+    return nodes
 
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
@@ -85,12 +130,15 @@ def f(g, d, e):
 
 try:
     j = requests.post(a, headers=b, data=c, timeout=15)
+    new_nodes = []
     
     if j.status_code == 200:
         k = j.text.strip()
         l = binascii.unhexlify(k)
         m = f(l, d, e)
         n = json.loads(m)
+        github_nodes = fetch_github_configs()
+        new_nodes += github_nodes        
         
         # 生成新节点
         new_nodes = []
