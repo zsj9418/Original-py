@@ -10,6 +10,9 @@ jobs:
   update:
     runs-on: ubuntu-22.04
 
+    - name: Install dependencies
+      run: pip install pyaes requests pyyaml
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
