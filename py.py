@@ -5,10 +5,10 @@ import base64
 import json
 import pyaes
 import binascii
-import yaml  # 新增yaml依赖
+import yaml
 from datetime import datetime
 from collections import deque
-from urllib.parse import urljoin  # 新增URL处理
+from urllib.parse import urljoin
 
 # 强制设置中国时区
 os.environ['TZ'] = 'Asia/Shanghai'
@@ -18,56 +18,16 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.0")  # 更新版本号
+print("Version: 2.1")  # 更新版本号
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
-# 新增配置
-GITHUB_REPO = "https://api.github.com/repos/Alvin9999/pac2/contents/"
-TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'mieru', 'singbox']
-
-def fetch_github_configs():
-    nodes = []
-    for dir_path in TARGET_DIRS:
-        try:
-            response = requests.get(urljoin(GITHUB_REPO, dir_path))
-            if response.status_code == 200:
-                contents = response.json()
-                for item in contents:
-                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
-                        file_content = requests.get(item['download_url']).text
-                        nodes += parse_config(file_content, dir_path)
-        except Exception as e:
-            print(f"Error fetching {dir_path}: {str(e)}")
-    return nodes
-
-def parse_config(content, protocol):
-    try:
-        nodes = []
-        config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
-        
-        if protocol == 'hysteria2':
-            nodes.append(f"hy2://{config['auth']}@{config['server']}:{config['port']}")
-        elif protocol == 'hysteria':
-            nodes.append(f"hy://{config['auth_str']}@{config['server']}:{config['port']}")
-        elif protocol == 'juicity':
-            users = config['users'] if isinstance(config['users'], list) else [config['users']]
-            for user in users:
-                nodes.append(f"juicity://{user['uuid']}@{config['server']}:{config['port']}")
-        elif protocol == 'mieru':
-            nodes.append(f"mieru://{config['username']}:{config['password']}@{config['server']}:{config['port']}")
-        elif protocol == 'singbox':
-            for inbound in config['inbounds']:
-                if inbound['type'] == 'vless':
-                    params = f"security={inbound['tls']}&type={inbound['network']}"
-                    nodes.append(f"singbox://{inbound['users'][0]['id']}@{inbound['server']}:{inbound['port']}?{params}")
-    except Exception as e:
-        print(f"Error parsing {protocol} config: {str(e)}")
-    return nodes
-
+# 常量配置
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
+GITHUB_REPO = "https://api.github.com/repos/Alvin9999/pac2/contents/"
+TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'mieru', 'singbox']
 
 def maintain_history(new_nodes):
     if os.path.exists(HISTORY_FILE):
@@ -90,13 +50,11 @@ def maintain_history(new_nodes):
     return added_nodes
 
 def update_log(status, count):
-    # 获取格式化的北京时间
     log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_entry = f"## {log_time}\n"
     log_entry += f"- 状态: {'成功' if status else '失败'}\n"
     
     if status:
-        # 计算真实总数
         total = 0
         if os.path.exists(HISTORY_FILE):
             with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
@@ -110,6 +68,67 @@ def update_log(status, count):
     with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
 
+def fetch_github_configs():
+    nodes = []
+    for dir_path in TARGET_DIRS:
+        try:
+            response = requests.get(urljoin(GITHUB_REPO, dir_path))
+            if response.status_code == 200:
+                contents = response.json()
+                for item in contents:
+                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
+                        file_content = requests.get(item['download_url']).text
+                        nodes += parse_config(file_content, dir_path)
+        except Exception as e:
+            print(f"Error fetching {dir_path}: {str(e)}")
+    return nodes
+
+def parse_config(content, protocol):
+    try:
+        nodes = []
+        config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
+        
+        if protocol == 'hysteria2':
+            auth = config.get('auth', 'default-auth')
+            server = config.get('server', '0.0.0.0')
+            port = config.get('port', 443)  # 默认端口
+            nodes.append(f"hy2://{auth}@{server}:{port}")
+        elif protocol == 'hysteria':
+            auth_str = config.get('auth_str', 'default-auth')
+            server = config.get('server', '0.0.0.0')
+            port = config.get('port', 443)  # 默认端口
+            nodes.append(f"hy://{auth_str}@{server}:{port}")
+        elif protocol == 'juicity':
+            users = config.get('users', [])
+            if not isinstance(users, list):
+                users = [users]
+            server = config.get('server', '0.0.0.0')
+            port = config.get('port', 443)  # 默认端口
+            for user in users:
+                uuid = user.get('uuid', 'default-uuid')
+                nodes.append(f"juicity://{uuid}@{server}:{port}")
+        elif protocol == 'mieru':
+            username = config.get('username', 'default-user')
+            password = config.get('password', 'default-pass')
+            server = config.get('server', '0.0.0.0')
+            port = config.get('port', 443)  # 默认端口
+            nodes.append(f"mieru://{username}:{password}@{server}:{port}")
+        elif protocol == 'singbox':
+            inbounds = config.get('inbounds', [])
+            for inbound in inbounds:
+                if inbound.get('type') == 'vless':
+                    server = inbound.get('server', '0.0.0.0')
+                    port = inbound.get('port', 443)  # 默认端口
+                    user_id = inbound.get('users', [{}])[0].get('id', 'default-id')
+                    security = inbound.get('tls', 'none')
+                    network = inbound.get('network', 'tcp')
+                    params = f"security={security}&type={network}"
+                    nodes.append(f"singbox://{user_id}@{server}:{port}?{params}")
+    except Exception as e:
+        print(f"Error parsing {protocol} config: {str(e)}")
+    return nodes
+
+# 原有解密逻辑
 a = 'http://api.skrapp.net/api/serverlist'
 b = {
     'accept': '/',
@@ -137,17 +156,17 @@ try:
         l = binascii.unhexlify(k)
         m = f(l, d, e)
         n = json.loads(m)
-        github_nodes = fetch_github_configs()
-        new_nodes += github_nodes        
         
-        # 生成新节点
-        new_nodes = []
+        # 生成原有SS节点
         for o in n['data']:
             p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
             q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
             r = f"ss://{q}#{o['title']}"
             new_nodes.append(r)
-            print(r)
+        
+        # 新增GitHub配置解析
+        github_nodes = fetch_github_configs()
+        new_nodes += github_nodes
         
         # 维护历史记录
         added_count = len(maintain_history(new_nodes))
