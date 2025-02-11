@@ -40,6 +40,7 @@ jobs:
         git push
 
     - name: WeChat Work Notification
+      if: always() # Ensure notification is sent even if previous steps fail
       env:
         WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK }}
       run: |
@@ -47,7 +48,7 @@ jobs:
         MESSAGE='{
           "msgtype": "markdown",
           "markdown": {
-            "content": "**节点更新通知**\n> 时间: `$(TZ=Asia/Shanghai date +"%Y-%m-%d %H:%M:%S")`\n> 新增节点数: `$(git diff --stat HEAD~1 | grep nodes.txt | awk "{print \$3}")`\n\n最新节点预览:\n```\n'$UPDATE_CONTENT'\n```"
+            "content": "**节点更新通知**\n> 时间: `$(TZ=Asia/Shanghai date +"%Y-%m-%d %H:%M:%S")`\n> 更新结果: `${{ job.status }}`\n> 新增节点数: `$(git diff --stat HEAD~1 | grep nodes.txt | awk "{print \$3}")`\n\n最新节点预览:\n```\n'$UPDATE_CONTENT'\n```"
           }
         }'
-        curl -X POST $WEBHOOK_URL -H "Content-Type: application/json" -d "$MESSAGE"
+        curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "$MESSAGE"
