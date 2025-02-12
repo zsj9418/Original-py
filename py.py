@@ -85,7 +85,11 @@ def fetch_and_convert_hysteria(url):
                 server_name = config.get("server_name", "")
                 alpn = config.get("alpn", "h3")
 
-                hysteria_uri = f"hy://{base64.b64encode(f'{auth_str}@{server}?peer={server_name}&insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}'.encode()).decode()}"
+                # 添加 up 和 down 字段
+                up = config.get("up", "500Mbps")  # 默认 500Mbps
+                down = config.get("down", "1000Mbps")  # 默认 1000Mbps
+
+                hysteria_uri = f"hy://{base64.b64encode(f'{auth_str}@{server}?peer={server_name}&insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}&up={up}&down={down}'.encode()).decode()}"
                 return hysteria_uri
             else:
                 # Hysteria 2
@@ -97,9 +101,12 @@ def fetch_and_convert_hysteria(url):
                 alpn = config.get("alpn", "h3")
                 protocol = config.get("protocol", "udp")
 
-                # 修正：auth 只需要编码一次
+                 # 添加 up 和 down 字段
+                up = config.get("up", "500Mbps")  # 默认 500Mbps
+                down = config.get("down", "1000Mbps")  # 默认 1000Mbps
+
                 auth_encoded = base64.b64encode(auth.encode()).decode()
-                hysteria2_uri = f"hy2://{base64.b64encode(f'{server}?insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}&auth={auth_encoded}'.encode()).decode()}"
+                hysteria2_uri = f"hy2://{base64.b64encode(f'{server}?insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}&auth={auth_encoded}&up={up}&down={down}'.encode()).decode()}"
                 return hysteria2_uri
         else:
             print("无效的 Hysteria 配置文件")
