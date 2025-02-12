@@ -40,6 +40,19 @@ class ProtocolValidator:
     def validate_address(address):
         return re.match(r'^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$', address) or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', address)
 
+    except json.JSONDecodeError as json_e: # 捕获 JSON 解析错误
+        print(f"🚨 JSON 解析错误 [{protocol.upper()}] (文件名: {filename}): {str(json_e)}")
+        print(f"🔧 问题内容片段:\n{content[:150]}...")
+        return []
+    except yaml.YAMLError as yaml_e: # 捕获 YAML 解析错误
+        print(f"🚨 YAML 解析错误 [{protocol.upper()}] (文件名: {filename}): {str(yaml_e)}")
+        print(f"🔧 问题内容片段:\n{content[:150]}...")
+        return []
+    except Exception as e:
+        print(f"🚨 [{protocol.upper()} 解析错误] (文件名: {filename}): {str(e)}")
+        print(f"🔧 问题内容片段:\n{content[:150]}...")
+        return []
+
 def fetch_github_configs():
     nodes = []
     headers = {'Authorization': f'token {GITHUB_TOKEN}'}
@@ -67,20 +80,31 @@ def fetch_github_configs():
             print(f"🚨 严重错误: {str(e)}")
     return nodes
 
-def parse_config(content, protocol):
+def parse_config(content, protocol, filename): # 添加 filename 参数
     try:
         # 预处理内容
         content = content.strip().replace('\t', ' ')
 
-        # 根据协议类型选择解析器
-        if protocol in ['hysteria2', 'hysteria']:
+        # 根据文件名后缀判断解析方式
+        if filename.endswith(('.yaml', '.yml')):
+            print(f"🐞 DEBUG: 使用 YAML 解析器 for {filename}")
             config = yaml.safe_load(content)
-            if not isinstance(config, dict):  # 添加类型检查
-                print(f"🚨 [{protocol.upper()} 解析错误] YAML 内容不是有效的字典结构，请检查配置文件格式。")
-                print(f"🔧 问题内容片段:\n{content[:150]}...")
-                return [] # 返回空列表，避免后续错误
-        else:
+        elif filename.endswith('.json'):
+            print(f"🐞 DEBUG: 使用 JSON 解析器 for {filename}")
             config = json.loads(content)
+        else:
+            print(f"⚠️  警告: 未知文件类型 for {filename}, 尝试 JSON 解析器 (默认)")
+            config = json.loads(content) # 默认使用 JSON 解析器
+
+        print(f"🐞 DEBUG: 文件名: {filename}, 协议类型: {protocol}")
+        print(f"🐞 DEBUG: 解析结果类型: {type(config)}")
+        print(f"🐞 DEBUG: 解析结果 (前 100 字符): {str(config)[:100]}...") # 打印部分解析结果
+
+        if not isinstance(config, dict):
+            print(f"🚨 [{protocol.upper()} 解析错误] 解析后不是字典类型 (文件名: {filename}).")
+            print(f"🔧 问题内容片段:\n{content[:150]}...")
+            return []
+
 
         nodes = []
         
@@ -220,17 +244,24 @@ def parse_config(content, protocol):
         config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
         
         if protocol == 'hysteria2':
-            # 适配新版Hysteria2配置结构
-            auth = config.get('auth', {}).get('password', 'default-auth')
-            server = config.get('server', '0.0.0.0')
+            auth = config.get('auth', {}).get('password', '') # 现在应该可以正常工作
+            server = config.get('server', '')
             port = config.get('port', 443)
-            up = config.get('up_mbps', 100)
-            down = config.get('down_mbps', 100)
+
+            tls_config = config.get('tls', {})
+            obfs_config = config.get('obfs', {})
+
             params = {
-                'upmbps': up,
-                'downmbps': down,
-                'insecure': int(config.get('tls', {}).get('insecure', 0))
+                'upmbps': config.get('up_mbps'),
+                'downmbps': config.get('down_mbps'),
+                'insecure': int(tls_config.get('insecure', 0)),
+                'sni': tls_config.get('sni', ''),
+                'alpn': ','.join(tls_config.get('alpn', [])),
+                'obfs': obfs_config.get('type', ''),
+                'obfs-password': obfs_config.get('password', ''),
+                'congestion': config.get('congestion_control', '')
             }
+            params = {k: v for k, v in params.items() if v not in [None, '', 0]}
             nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
             
         elif protocol == 'hysteria':
@@ -314,7 +345,7 @@ try:
             q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
             r = f"ss://{q}#{o['title']}"
             new_nodes.append(r)
-        
+            
         # 新增GitHub配置解析
         print("\n🌐 开始扫描GitHub仓库配置...")
         github_nodes = fetch_github_configs()
