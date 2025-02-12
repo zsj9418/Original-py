@@ -16,7 +16,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.0 (with Hysteria support)")
+print("Version: 2.1 (Fixed Hysteria2 Encoding)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -32,13 +32,12 @@ HYSTERIA_URLS = [
 def maintain_history(new_nodes):
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding='utf-8') as f:
-            history = deque(f.read().splitlines(), MAX_HISTORY * 50)  # 增加容量以容纳更多节点
+            history = deque(f.read().splitlines(), MAX_HISTORY * 50)
     else:
         history = deque(maxlen=MAX_HISTORY * 50)
 
     unique_nodes = set(history)
     added_nodes = [n for n in new_nodes if n not in unique_nodes]
-
     history.extend(added_nodes)
 
     if len(history) > MAX_HISTORY * 50:
@@ -48,6 +47,7 @@ def maintain_history(new_nodes):
         f.write("\n".join(history))
 
     return added_nodes
+
 
 def update_log(status, count, error_msg=""):
     log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -68,16 +68,16 @@ def update_log(status, count, error_msg=""):
     with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
 
+
 def fetch_and_convert_hysteria(url):
     try:
         response = requests.get(url, timeout=15)
-        response.raise_for_status()  # 如果请求失败，抛出异常
+        response.raise_for_status()
         config = response.json()
 
-        # 根据 auth_str 或 auth 的存在与否来判断是 Hysteria 还是 Hysteria2
         if "auth_str" in config or "auth" in config:
             if "auth_str" in config:
-          
+                # Hysteria 1
                 auth_str = config.get("auth_str", "")
                 server = config.get("server", "")
                 fast_open = config.get("fast_open", True)
@@ -85,10 +85,10 @@ def fetch_and_convert_hysteria(url):
                 server_name = config.get("server_name", "")
                 alpn = config.get("alpn", "h3")
 
-                # 构建 Hysteria URI
                 hysteria_uri = f"hy://{base64.b64encode(f'{auth_str}@{server}?peer={server_name}&insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}'.encode()).decode()}"
                 return hysteria_uri
             else:
+                # Hysteria 2
                 auth = config.get("auth", "")
                 server = config.get("server", "")
                 fast_open = config.get("fast_open", True)
@@ -97,10 +97,10 @@ def fetch_and_convert_hysteria(url):
                 alpn = config.get("alpn", "h3")
                 protocol = config.get("protocol", "udp")
 
-                # 构建 Hysteria2 URI
-                hysteria2_uri = f"hy2://{base64.b64encode(f'{server}?insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}&auth={base64.b64encode(auth.encode()).decode()}').decode()}"
+                # 修正：auth 只需要编码一次
+                auth_encoded = base64.b64encode(auth.encode()).decode()
+                hysteria2_uri = f"hy2://{base64.b64encode(f'{server}?insecure={int(insecure)}&fastopen={int(fast_open)}&alpn={alpn}&auth={auth_encoded}'.encode()).decode()}"
                 return hysteria2_uri
-            
         else:
             print("无效的 Hysteria 配置文件")
             return None
@@ -171,6 +171,7 @@ def main():
     # 维护历史记录并更新日志
     added_count = len(maintain_history(all_new_nodes))
     update_log(True, added_count)
+
 
 if __name__ == "__main__":
     main()
