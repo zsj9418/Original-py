@@ -27,14 +27,14 @@ print("𝐼𝑢:")
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
-GITHUB_REPO = "https://api.github.com/repos/Alvin9999/pac2/contents/"
-TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'singbox', 'v2ray', 'vmess']
+GITHUB_REPO = "https://www.gitlabip.xyz/Alvin9999/pac2/master" # 修改后的repo地址
+TARGET_DIRS = ['hysteria', 'hysteria2', 'juicity', 'mieru', 'singbox', 'v2ray', 'vmess']
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'ghp_abc123')  # 替换为有效token
 
 class ProtocolValidator:
     @staticmethod
     def validate_port(port):
-        return isinstance(port, int) and 1 <= port <= 65535
+        return 1 <= port <= 65535
 
     @staticmethod
     def validate_address(address):
@@ -42,30 +42,61 @@ class ProtocolValidator:
 
 def fetch_github_configs():
     nodes = []
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    headers = {}  # 不需要token, gitlab不需要token
     
     for dir_path in TARGET_DIRS:
         print(f"\n🔍 正在扫描目录: {dir_path}")
-        try:
-            response = requests.get(urljoin(GITHUB_REPO, dir_path), headers=headers)
-            if response.status_code != 200:
-                print(f"⚠️ 目录请求失败 [{response.status_code}]: {dir_path}")
-                continue
+        
+        if dir_path == 'hysteria':
+            try:
+                url = f"{GITHUB_REPO}/hysteria/1/config.json"
+                print(f"📄 尝试获取 hysteria 配置: {url}")
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    parsed = parse_config(response.text, 'hysteria')
+                    print(f"🎯 解析到 {len(parsed)} 个节点")
+                    nodes += parsed
+                else:
+                    print(f"⛔ hysteria 文件下载失败 [{response.status_code}]")
+            except Exception as e:
+                print(f"🚨 严重错误 (hysteria): {str(e)}")
                 
-            contents = response.json()
-            for item in contents:
-                if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
-                    print(f"📄 发现配置文件: {item['name']}")
-                    file_response = requests.get(item['download_url'])
-                    if file_response.status_code == 200:
-                        parsed = parse_config(file_response.text, dir_path)
-                        print(f"🎯 解析到 {len(parsed)} 个节点")
-                        nodes += parsed
-                    else:
-                        print(f"⛔ 文件下载失败: {item['name']} [{file_response.status_code}]")
-        except Exception as e:
-            print(f"🚨 严重错误: {str(e)}")
+        elif dir_path == 'hysteria2':
+            try:
+                url = f"{GITHUB_REPO}/hysteria2/config.json"
+                print(f"📄 尝试获取 hysteria2 配置: {url}")
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    parsed = parse_config(response.text, 'hysteria2')
+                    print(f"🎯 解析到 {len(parsed)} 个节点")
+                    nodes += parsed
+                else:
+                    print(f"⛔ hysteria2 文件下载失败 [{response.status_code}]")
+            except Exception as e:
+                print(f"🚨 严重错误 (hysteria2): {str(e)}")
+
+        else: # 其他目录保持原样
+            try:
+                response = requests.get(urljoin(GITHUB_REPO, dir_path), headers=headers)
+                if response.status_code != 200:
+                    print(f"⚠️ 目录请求失败 [{response.status_code}]: {dir_path}")
+                    continue
+                    
+                contents = response.json()
+                for item in contents:
+                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
+                        print(f"📄 发现配置文件: {item['name']}")
+                        file_response = requests.get(item['download_url'])
+                        if file_response.status_code == 200:
+                            parsed = parse_config(file_response.text, dir_path)
+                            print(f"🎯 解析到 {len(parsed)} 个节点")
+                            nodes += parsed
+                        else:
+                            print(f"⛔ 文件下载失败: {item['name']} [{file_response.status_code}]")
+            except Exception as e:
+                print(f"🚨 严重错误: {str(e)}")
     return nodes
+
 
 def parse_config(content, protocol):
     try:
@@ -74,7 +105,7 @@ def parse_config(content, protocol):
         
         # 根据协议类型选择解析器
         if protocol in ['hysteria2', 'hysteria']:
-            config = yaml.safe_load(content)
+            config = json.loads(content)
         else:
             config = json.loads(content)
             
@@ -87,8 +118,8 @@ def parse_config(content, protocol):
         # 协议特定解析
         if protocol == 'hysteria2':
             auth = config.get('auth', {}).get('password', '')
-            server = config.get('server', '').split(':')[0]  # 处理可能存在的端口粘连
-            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
+            server = config.get('server', '')
+            port = config.get('port', 443)
             
             tls_config = config.get('tls', {})
             obfs_config = config.get('obfs', {})
@@ -96,26 +127,23 @@ def parse_config(content, protocol):
             params = {
                 'upmbps': config.get('up_mbps'),
                 'downmbps': config.get('down_mbps'),
-                'sni': tls_config.get('sni', ''),
                 'insecure': int(tls_config.get('insecure', 0)),
+                'sni': tls_config.get('sni', ''),
                 'alpn': ','.join(tls_config.get('alpn', [])),
                 'obfs': obfs_config.get('type', ''),
-                'obfs-password': obfs_config.get('password', '')
+                'obfs-password': obfs_config.get('password', ''),
+                'congestion': config.get('congestion_control', '')
             }
             params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            
-            # 生成兼容sing-box的URI
-            node_str = f"hy2://{auth}@{server}:{port}?{urlencode(params)}"
-            if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
-                nodes.append(node_str)
+            nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
 
         elif protocol == 'hysteria':
-            auth = config.get('auth_str', '')
-            server = config.get('server', '').split(':')[0]
-            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
+            auth = config.get('auth', {}).get('password', '') # hysteria 1 应该从auth中获取密码
+            server = config.get('server', '')
+            port = config.get('port', 443)
             
             params = {
-                'protocol': config.get('protocol', 'udp'),
+                'protocol': config.get('protocol', 'udp'), # hysteria 1 需要指定协议
                 'upmbps': config.get('up_mbps'),
                 'downmbps': config.get('down_mbps'),
                 'alpn': ','.join(config.get('alpn', [])),
@@ -124,35 +152,30 @@ def parse_config(content, protocol):
                 'insecure': int(config.get('insecure', 0))
             }
             params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            node_str = f"hy://{auth}@{server}:{port}?{urlencode(params)}"
-            if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
-                nodes.append(node_str)
+            nodes.append(f"hy://{auth}@{server}:{port}?{urlencode(params)}")
 
         elif protocol == 'juicity':
-            users = config.get('users', [])
-            if not isinstance(users, list):
-                users = [users]
-            server = config.get('server', '').split(':')[0]
-            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
-            for user in users:
+            server = config.get('server', '')
+            port = config.get('port', 443)
+            for user in config.get('users', []):
                 uuid = user.get('uuid', '')
-                node_str = f"juicity://{uuid}@{server}:{port}"
-                if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
-                    nodes.append(node_str)
+                nodes.append(f"juicity://{uuid}@{server}:{port}")
 
         elif protocol == 'singbox':
-            inbounds = config.get('inbounds', [])
-            for inbound in inbounds:
+            for inbound in config.get('inbounds', []):
                 if inbound.get('type') == 'vless':
-                    server = inbound.get('server', '').split(':')[0]
-                    port = int(inbound.get('server', ':443').split(':')[-1]) if ':' in inbound.get('server', '') else 443
-                    user_id = inbound.get('users', [{}])[0].get('id', '')
-                    security = 'tls' if inbound.get('tls') else 'none'
-                    network = inbound.get('network', 'tcp')
-                    params = f"security={security}&type={network}"
-                    node_str = f"singbox://{user_id}@{server}:{port}?{params}"
-                    if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
-                        nodes.append(node_str)
+                    server = inbound.get('listen', '')  #  sing-box中listen字段代表服务器地址
+                    port = inbound.get('port', 443)
+                    user = inbound.get('users', [{}])[0]
+                    params = {
+                        'security': 'tls' if inbound.get('tls') else 'none',
+                        'sni': inbound.get('tls_settings', {}).get('server_name', ''),
+                        'flow': user.get('flow', ''),
+                        'pbk': user.get('publicKey', ''),
+                        'sid': user.get('shortId', '')
+                    }
+                    params = {k: v for k, v in params.items() if v}
+                    nodes.append(f"vless://{user.get('id', '')}@{server}:{port}?{urlencode(params)}")
 
         # 过滤无效节点
         return [n for n in nodes if 
