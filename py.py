@@ -9,7 +9,8 @@ import yaml
 import re
 from datetime import datetime
 from collections import deque
-from urllib.parse import urljoin, urlencode
+from urllib.parse import urljoin, urlencode，quote, urlparse
+from socket import socket, AF_INET, SOCK_STREAM
 
 # 强制设置中国时区
 os.environ['TZ'] = 'Asia/Shanghai'
@@ -19,115 +20,74 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 3.1 (FIXED)")
+print("Version: 2.1 (增强健壮性)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
-# 常量配置
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
-GITLAB_REPO = "https://www.gitlabip.xyz/Alvin9999/pac2/master/"
-HYSTERIA_CONFIGS = [
-    "hysteria/1/config.json",
-    "hysteria2/config.json"
+HYSTERIA_URLS = [
+    'https://www.gitlabip.xyz/Alvin9999/pac2/master/hysteria/1/config.json',
+    'https://www.gitlabip.xyz/Alvin9999/pac2/master/hysteria2/config.json'
 ]
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'ghp_abc123')  # 替换为有效token
+TIMEOUT = 15
+PORT_CHECK_TIMEOUT = 3
 
-class ProtocolValidator:
-    @staticmethod
-    def validate_port(port):
-        return 1 <= port <= 65535
-
-    @staticmethod
-    def validate_address(address):
-        return re.match(r'^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$', address) or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', address)
-
-def fetch_gitlab_configs():
-    nodes = []
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
-    
-    for config_path in HYSTERIA_CONFIGS:
-        print(f"\n🔍 正在获取配置: {config_path}")
-        try:
-            response = requests.get(urljoin(GITLAB_REPO, config_path), headers=headers)
-            if response.status_code != 200:
-                print(f"⚠️ 配置请求失败 [{response.status_code}]: {config_path}")
-                continue
-                
-            content = response.text
-            parsed = parse_config(content, 'hysteria')
-            print(f"🎯 解析到 {len(parsed)} 个节点")
-            nodes += parsed
-        except Exception as e:
-            print(f"🚨 严重错误: {str(e)}")
-    return nodes
-
-def parse_config(content, protocol):
+def check_port(host, port):
+    """检查节点端口是否可达"""
     try:
-        # 预处理内容
-        content = content.strip().replace('\t', ' ')
-        
-        # 根据协议类型选择解析器
-        if protocol in ['hysteria2', 'hysteria']:
-            config = yaml.safe_load(content)
-        else:
-            config = json.loads(content)
-            
-        nodes = []
-        
-        # 通用验证
-        if not ProtocolValidator.validate_port(config.get('port', 0)):
-            raise ValueError("端口号无效")
+        with socket(AF_INET, SOCK_STREAM) as s:
+            s.settimeout(PORT_CHECK_TIMEOUT)
+            s.connect((host, port))
+        return True
+    except Exception:
+        return False
 
-        # 协议特定解析
-        if protocol == 'hysteria2':
-            auth = config.get('auth', {}).get('password', '')
-            server = config.get('server', '')
-            port = config.get('port', 443)
+def get_hysteria_nodes():
+    hysteria_nodes = []
+    for url in HYSTERIA_URLS:
+        try:
+            response = requests.get(url, timeout=TIMEOUT)
+            response.raise_for_status()
+            configs = json.loads(response.text)
             
-            tls_config = config.get('tls', {})
-            obfs_config = config.get('obfs', {})
-            
-            params = {
-                'upmbps': config.get('up_mbps'),
-                'downmbps': config.get('down_mbps'),
-                'insecure': int(tls_config.get('insecure', 0)),
-                'sni': tls_config.get('sni', ''),
-                'alpn': ','.join(tls_config.get('alpn', [])),
-                'obfs': obfs_config.get('type', ''),
-                'obfs-password': obfs_config.get('password', ''),
-                'congestion': config.get('congestion_control', '')
-            }
-            params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
-
-        elif protocol == 'hysteria':
-            auth = config.get('auth_str', '')
-            server = config.get('server', '')
-            port = config.get('port', 443)
-            
-            params = {
-                'protocol': config.get('protocol', 'udp'),
-                'upmbps': config.get('up_mbps'),
-                'downmbps': config.get('down_mbps'),
-                'alpn': ','.join(config.get('alpn', [])),
-                'obfs': config.get('obfs', ''),
-                'peer': config.get('server_name', ''),
-                'insecure': int(config.get('insecure', 0))
-            }
-            params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            nodes.append(f"hy://{auth}@{server}:{port}?{urlencode(params)}")
-
-        # 过滤无效节点
-        return [n for n in nodes if 
-                ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and 
-                ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0]))]
-
-    except Exception as e:
-        print(f"🚨 [{protocol.upper()} 解析错误] {str(e)}")
-        print(f"🔧 问题内容片段:\n{content[:150]}...")
-        return []
+            for cfg in configs.get('servers', []):
+                try:
+                    server = cfg['server']
+                    port = int(cfg['server_port'])
+                    
+                    # 检查端口是否可达
+                    if not check_port(server, port):
+                        print(f"节点 {server}:{port} 不可达，跳过")
+                        continue
+                    
+                    # Hysteria1格式
+                    if url.endswith('hysteria/1/config.json'):
+                        params = [
+                            f"auth={quote(cfg.get('auth_str', ''))}",
+                            f"insecure={1 if cfg.get('insecure', False) else 0}",
+                            f"alpn={quote(cfg.get('alpn', ''))}"
+                        ]
+                        uri = f"hy://{server}:{port}?{'&'.join(params)}#{quote(cfg.get('remarks', ''))}"
+                    
+                    # Hysteria2格式
+                    else:
+                        auth = f"{quote(cfg.get('auth_str', ''))}@" if cfg.get('auth_str') else ""
+                        params = [
+                            f"insecure={1 if cfg.get('insecure', False) else 0}",
+                            f"obfs={quote(cfg.get('obfs', ''))}"
+                        ]
+                        uri = f"hy2://{auth}{server}:{port}?{'&'.join(params)}#{quote(cfg.get('remarks', ''))}"
+                    
+                    hysteria_nodes.append(uri)
+                except KeyError as e:
+                    print(f"配置缺少必要字段: {str(e)}")
+                    continue
+        except requests.RequestException as e:
+            print(f"获取Hysteria配置失败: {str(e)}")
+            continue
+    return hysteria_nodes
 
 def maintain_history(new_nodes):
     if os.path.exists(HISTORY_FILE):
@@ -168,7 +128,45 @@ def update_log(status, count):
     with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
 
-# 原有解密逻辑保持不变
+def decrypt_aes(data, key, iv):
+    aes = pyaes.AESModeOfOperationCBC(key, iv=iv)
+    decrypted = b''.join(aes.decrypt(data[i:i+16]) for i in range(0, len(data), 16))
+    return decrypted[:-decrypted[-1]]
+
+def get_ss_nodes():
+    ss_nodes = []
+    try:
+        response = requests.post(a, headers=b, data=c, timeout=TIMEOUT)
+        response.raise_for_status()
+        
+        encrypted_data = binascii.unhexlify(response.text.strip())
+        decrypted_data = decrypt_aes(encrypted_data, d, e)
+        node_data = json.loads(decrypted_data)
+        
+        for node in node_data['data']:
+            try:
+                host = node['ip']
+                port = int(node['port'])
+                
+                if not check_port(host, port):
+                    print(f"节点 {host}:{port} 不可达，跳过")
+                    continue
+                
+                ss_uri = f"aes-256-cfb:{node['password']}@{host}:{port}"
+                ss_uri_b64 = base64.b64encode(ss_uri.encode('utf-8')).decode('utf-8')
+                full_uri = f"ss://{ss_uri_b64}#{node['title']}"
+                ss_nodes.append(full_uri)
+            except KeyError as e:
+                print(f"SS节点配置缺少必要字段: {str(e)}")
+                continue
+    except requests.RequestException as e:
+        print(f"获取SS节点失败: {str(e)}")
+    except (binascii.Error, json.JSONDecodeError, ValueError) as e:
+        print(f"解析SS节点数据失败: {str(e)}")
+    
+    return ss_nodes
+
+# 配置信息
 a = 'http://api.skrapp.net/api/serverlist'
 b = {
     'accept': '/',
@@ -182,40 +180,25 @@ c = {'data': '4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14b
 d = b'65151f8d966bf596'
 e = b'88ca0f0ea1ecf975'
 
-def f(g, d, e):
-    h = pyaes.AESModeOfOperationCBC(d, iv=e)
-    i = b''.join(h.decrypt(g[j:j+16]) for j in range(0, len(g), 16))
-    return i[:-i[-1]]
-
 try:
-    j = requests.post(a, headers=b, data=c, timeout=15)
-    new_nodes = []
+    # 获取SS节点
+    ss_nodes = get_ss_nodes()
+    print("\nSS节点:")
+    for node in ss_nodes:
+        print(node)
     
-    if j.status_code == 200:
-        k = j.text.strip()
-        l = binascii.unhexlify(k)
-        m = f(l, d, e)
-        n = json.loads(m)
-        
-        # 生成原有SS节点
-        for o in n['data']:
-            p = f"aes-256-cfb:{o['password']}@{o['ip']}:{o['port']}"
-            q = base64.b64encode(p.encode('utf-8')).decode('utf-8')
-            r = f"ss://{q}#{o['title']}"
-            new_nodes.append(r)
-        
-        # 新增GitLab配置解析
-        print("\n🌐 开始扫描GitLab仓库配置...")
-        gitlab_nodes = fetch_gitlab_configs()
-        print(f"✅ 从GitLab获取到 {len(gitlab_nodes)} 个节点")
-        new_nodes += gitlab_nodes
-        
-        # 维护历史记录
-        added_count = len(maintain_history(new_nodes))
-        update_log(True, added_count)
-    else:
-        update_log(False, 0)
-        print(f"请求失败，HTTP状态码: {j.status_code}")
+    # 获取Hysteria节点
+    hysteria_nodes = get_hysteria_nodes()
+    print("\nHysteria节点:")
+    for node in hysteria_nodes:
+        print(node)
+    
+    # 合并节点并去重
+    all_nodes = list(set(ss_nodes + hysteria_nodes))
+    
+    # 维护历史记录
+    added_count = len(maintain_history(all_nodes))
+    update_log(True, added_count)
 
 except Exception as ex:
     update_log(False, 0)
