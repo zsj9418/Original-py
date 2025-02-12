@@ -96,15 +96,26 @@ if __name__ == "__main__":
     try:
         response = requests.post(
             'http://api.skrapp.net/api/serverlist',
-            headers={...},
-            data={...},
+            headers={
+                'accept': '/',
+                'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
+                'appversion': '1.3.1',
+                'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
+                'content-type': 'application/x-www-form-urlencoded',
+                'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
+            },
+            data={
+                'data': '4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed'
+            },
             timeout=15
         )
         if response.status_code == 200:
-            decrypted = decrypt_data(...)
+            decrypted = decrypt_data(binascii.unhexlify(response.text.strip()), b'65151f8d966bf596', b'88ca0f0ea1ecf975')
             data = json.loads(decrypted)
-            ss_nodes = [f"ss://{base64.b64encode(f'aes-256-cfb:{item["password"]}@{item["ip"]}:{item["port"]}'.encode()).decode()}#{item['title']}" 
-                       for item in data['data']]
+            ss_nodes = [
+                f"ss://{base64.b64encode(f'aes-256-cfb:{item['password']}@{item['ip']}:{item['port']}'.encode()).decode()}#{item['title']}"
+                for item in data['data']
+            ]
     except Exception as e:
         print(f"SS节点获取失败: {str(e)}")
     
