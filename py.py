@@ -19,7 +19,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 3.2 (FIXED)")
+print("Version: 3.1 (FIXED)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -27,8 +27,11 @@ print("𝐼𝑢:")
 MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
-GITHUB_REPO = "https://www.gitlabip.xyz/Alvin9999/pac2/master" # 修改后的repo地址
-TARGET_DIRS = ['hysteria', 'hysteria2', 'juicity', 'mieru', 'singbox', 'v2ray', 'vmess']
+GITLAB_REPO = "https://www.gitlabip.xyz/Alvin9999/pac2/master/"
+HYSTERIA_CONFIGS = [
+    "hysteria/1/config.json",
+    "hysteria2/config.json"
+]
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'ghp_abc123')  # 替换为有效token
 
 class ProtocolValidator:
@@ -40,70 +43,25 @@ class ProtocolValidator:
     def validate_address(address):
         return re.match(r'^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$', address) or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', address)
 
-def fetch_github_configs():
+def fetch_gitlab_configs():
     nodes = []
-    headers = {}  # 不需要token, gitlab不需要token
+    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
     
-    for dir_path in TARGET_DIRS:
-        print(f"\n🔍 正在扫描目录: {dir_path}")
-        
-        if dir_path == 'hysteria':
-            try:
-                url = f"{GITHUB_REPO}/hysteria/1/config.json"
-                print(f"📄 尝试获取 hysteria 配置: {url}")
-                response = requests.get(url, headers=headers)
-                if response.status_code == 200:
-                    try:
-                        parsed = parse_config(response.text, 'hysteria')
-                        print(f"🎯 解析到 {len(parsed)} 个节点")
-                        nodes += parsed
-                    except Exception as e:
-                        print(f"🚨 [HYSTERIA 解析错误] 解析 config.json 时发生错误: {str(e)}")
-                else:
-                    print(f"⛔ hysteria 文件下载失败 [{response.status_code}]")
-            except Exception as e:
-                print(f"🚨 严重错误 (hysteria): {str(e)}")
+    for config_path in HYSTERIA_CONFIGS:
+        print(f"\n🔍 正在获取配置: {config_path}")
+        try:
+            response = requests.get(urljoin(GITLAB_REPO, config_path), headers=headers)
+            if response.status_code != 200:
+                print(f"⚠️ 配置请求失败 [{response.status_code}]: {config_path}")
+                continue
                 
-        elif dir_path == 'hysteria2':
-            try:
-                url = f"{GITHUB_REPO}/hysteria2/config.json"
-                print(f"📄 尝试获取 hysteria2 配置: {url}")
-                response = requests.get(url, headers=headers)
-                if response.status_code == 200:
-                    try:
-                        parsed = parse_config(response.text, 'hysteria2')
-                        print(f"🎯 解析到 {len(parsed)} 个节点")
-                        nodes += parsed
-                    except Exception as e:
-                        print(f"🚨 [HYSTERIA2 解析错误] 解析 config.json 时发生错误: {str(e)}")
-
-                else:
-                    print(f"⛔ hysteria2 文件下载失败 [{response.status_code}]")
-            except Exception as e:
-                print(f"🚨 严重错误 (hysteria2): {str(e)}")
-
-        else: # 其他目录保持原样
-            try:
-                response = requests.get(urljoin(GITHUB_REPO, dir_path), headers=headers)
-                if response.status_code != 200:
-                    print(f"⚠️ 目录请求失败 [{response.status_code}]: {dir_path}")
-                    continue
-                    
-                contents = response.json()
-                for item in contents:
-                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
-                        print(f"📄 发现配置文件: {item['name']}")
-                        file_response = requests.get(item['download_url'])
-                        if file_response.status_code == 200:
-                            parsed = parse_config(file_response.text, dir_path)
-                            print(f"🎯 解析到 {len(parsed)} 个节点")
-                            nodes += parsed
-                        else:
-                            print(f"⛔ 文件下载失败: {item['name']} [{file_response.status_code}]")
-            except Exception as e:
-                print(f"🚨 严重错误: {str(e)}")
+            content = response.text
+            parsed = parse_config(content, 'hysteria')
+            print(f"🎯 解析到 {len(parsed)} 个节点")
+            nodes += parsed
+        except Exception as e:
+            print(f"🚨 严重错误: {str(e)}")
     return nodes
-
 
 def parse_config(content, protocol):
     try:
@@ -112,24 +70,28 @@ def parse_config(content, protocol):
         
         # 根据协议类型选择解析器
         if protocol in ['hysteria2', 'hysteria']:
-            config = json.loads(content)
+            config = yaml.safe_load(content)
         else:
             config = json.loads(content)
             
         nodes = []
         
+        # 通用验证
+        if not ProtocolValidator.validate_port(config.get('port', 0)):
+            raise ValueError("端口号无效")
+
         # 协议特定解析
         if protocol == 'hysteria2':
-            server = config.get('server', '').split(',')[0] # 提取第一个server地址, 避免逗号分隔的server
-            port = int(config.get('port', 443))  # 确保端口是整数
             auth = config.get('auth', {}).get('password', '')
+            server = config.get('server', '')
+            port = config.get('port', 443)
             
             tls_config = config.get('tls', {})
             obfs_config = config.get('obfs', {})
             
             params = {
-                'upmbps': config.get('bandwidth', {}).get('up') if config.get('bandwidth') else config.get('up_mbps'),  # 兼容旧版本
-                'downmbps': config.get('bandwidth', {}).get('down') if config.get('bandwidth') else config.get('down_mbps'), # 兼容旧版本
+                'upmbps': config.get('up_mbps'),
+                'downmbps': config.get('down_mbps'),
                 'insecure': int(tls_config.get('insecure', 0)),
                 'sni': tls_config.get('sni', ''),
                 'alpn': ','.join(tls_config.get('alpn', [])),
@@ -141,9 +103,9 @@ def parse_config(content, protocol):
             nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
 
         elif protocol == 'hysteria':
-            server = config.get('server', '').split(',')[0] # 提取第一个server地址, 避免逗号分隔的server
-            port = int(config.get('port', 443))  # 确保端口是整数
-            auth = config.get('auth', {}).get('password', '')
+            auth = config.get('auth_str', '')
+            server = config.get('server', '')
+            port = config.get('port', 443)
             
             params = {
                 'protocol': config.get('protocol', 'udp'),
@@ -157,34 +119,10 @@ def parse_config(content, protocol):
             params = {k: v for k, v in params.items() if v not in [None, '', 0]}
             nodes.append(f"hy://{auth}@{server}:{port}?{urlencode(params)}")
 
-        elif protocol == 'juicity':
-            server = config.get('server', '')
-            port = config.get('port', 443)
-            for user in config.get('users', []):
-                uuid = user.get('uuid', '')
-                nodes.append(f"juicity://{uuid}@{server}:{port}")
-
-        elif protocol == 'singbox':
-            for inbound in config.get('inbounds', []):
-                if inbound.get('type') == 'vless':
-                    server = inbound.get('listen', '')  #  sing-box中listen字段代表服务器地址
-                    port = inbound.get('port', 443)
-                    user = inbound.get('users', [{}])[0]
-                    params = {
-                        'security': 'tls' if inbound.get('tls') else 'none',
-                        'sni': inbound.get('tls_settings', {}).get('server_name', ''),
-                        'flow': user.get('flow', ''),
-                        'pbk': user.get('publicKey', ''),
-                        'sid': user.get('shortId', '')
-                    }
-                    params = {k: v for k, v in params.items() if v}
-                    nodes.append(f"vless://{user.get('id', '')}@{server}:{port}?{urlencode(params)}")
-
         # 过滤无效节点
-        return [n for n in nodes if
-                '@' in n and ':' in n and ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and
-                (n.split(':')[-1].isdigit() and ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0])) if '/' in n.split(':')[-1] else ProtocolValidator.validate_port(int(n.split(':')[-1])))]
-
+        return [n for n in nodes if 
+                ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and 
+                ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0]))]
 
     except Exception as e:
         print(f"🚨 [{protocol.upper()} 解析错误] {str(e)}")
@@ -266,11 +204,11 @@ try:
             r = f"ss://{q}#{o['title']}"
             new_nodes.append(r)
         
-        # 新增GitHub配置解析
-        print("\n🌐 开始扫描GitHub仓库配置...")
-        github_nodes = fetch_github_configs()
-        print(f"✅ 从GitHub获取到 {len(github_nodes)} 个节点")
-        new_nodes += github_nodes
+        # 新增GitLab配置解析
+        print("\n🌐 开始扫描GitLab仓库配置...")
+        gitlab_nodes = fetch_gitlab_configs()
+        print(f"✅ 从GitLab获取到 {len(gitlab_nodes)} 个节点")
+        new_nodes += gitlab_nodes
         
         # 维护历史记录
         added_count = len(maintain_history(new_nodes))
