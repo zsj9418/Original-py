@@ -71,13 +71,17 @@ def parse_config(content, protocol):
     try:
         # 预处理内容
         content = content.strip().replace('\t', ' ')
-        
+
         # 根据协议类型选择解析器
         if protocol in ['hysteria2', 'hysteria']:
             config = yaml.safe_load(content)
+            if not isinstance(config, dict):  # 添加类型检查
+                print(f"🚨 [{protocol.upper()} 解析错误] YAML 内容不是有效的字典结构，请检查配置文件格式。")
+                print(f"🔧 问题内容片段:\n{content[:150]}...")
+                return [] # 返回空列表，避免后续错误
         else:
             config = json.loads(content)
-            
+
         nodes = []
         
         # 通用验证
