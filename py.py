@@ -61,11 +61,30 @@ def fetch_hysteria_nodes():
     return hysteria_nodes
 
 def maintain_history(new_nodes):
-    # ...保持原有历史维护逻辑不变...
-    # 修改后的完整代码需要考虑字符限制，这里保留核心修改部分
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, "r", encoding='utf-8') as f:
+            history = deque(f.read().splitlines(), MAX_HISTORY*20)
+    else:
+        history = deque(maxlen=MAX_HISTORY*20)
+
+    unique_nodes = set(history)
+    added_nodes = [n for n in new_nodes if n not in unique_nodes]
+    
+    history.extend(added_nodes)
+    
+    if len(history) > MAX_HISTORY*20:
+        history = deque(list(history)[-(MAX_HISTORY*20):], MAX_HISTORY*20)
+    
+    with open(HISTORY_FILE, "w", encoding='utf-8') as f:
+        f.write("\n".join(history))
+    
+    return added_nodes
 
 def update_log(status, count):
-    # ...原有日志逻辑保持不变...
+    # 获取格式化的北京时间
+    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_entry = f"## {log_time}\n"
+    log_entry += f"- 状态: {'成功' if status else '失败'}\n"
 
 # 修改后的主处理逻辑
 try:
