@@ -16,7 +16,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.4 (Fixed Port Parsing for IPv6)")
+print("Version: 2.5 (Handle Port Ranges)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -95,11 +95,15 @@ def fetch_and_convert_hysteria(url):
                     print("错误：server 字段不能为空")
                     return None
 
-                # 使用 rpartition 从右侧分割，只分割一次
                 host, _, port_str = server.rpartition(":")
                 if not port_str:
                     print("错误：server 字段必须包含端口 (例如: example.com:443)")
                     return None
+
+                # 检查是否有端口范围
+                if "-" in port_str:
+                    port_str = port_str.split("-")[0]  # 取起始端口
+
                 try:
                     port = int(port_str)
                 except ValueError:
@@ -144,11 +148,15 @@ def fetch_and_convert_hysteria(url):
                     print("错误：server 字段不能为空")
                     return None
 
-                # 使用 rpartition 从右侧分割，只分割一次
                 hostname, _, port_str = server.rpartition(":")
                 if not port_str:
                     print("错误: server 字段必须包含端口号 (例如: example.com:443)")
                     return None
+
+                # 检查是否有端口范围
+                if "-" in port_str:
+                    port_str = port_str.split("-")[0]  # 取起始端口
+
                 try:
                     port = int(port_str)
                 except ValueError:
