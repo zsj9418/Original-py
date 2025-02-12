@@ -2,7 +2,7 @@ name: Update PY
 
 on:
   schedule:
-    - cron: '0 */8 * * *'
+    - cron: '0 */8 * * *'  # 每8小时运行一次
       timezone: Asia/Shanghai
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ jobs:
         python-version: '3.10'
 
     - name: Install dependencies
-      run: pip install pyaes requests pyyaml
+      run: pip install pyaes requests
 
     - name: Run update script
       run: python py.py
@@ -39,13 +39,13 @@ jobs:
       run: |
         # 获取北京时间并格式化为中文时间戳
         UPDATE_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
-        
+
         # 从日志文件获取最新新增节点数
         NEW_NODES=$(tail -n 4 update_history.md | grep -oP '新增节点数: \K\d+' | tail -1)
-        
+
         # 获取最新节点（最多5条）
         LATEST_NODES=$(tail -n 5 nodes.txt | sed 's/"/\\"/g')
-        
+
         # 构建JSON消息体
         MESSAGE_JSON=$(cat <<EOF
         {
@@ -63,8 +63,9 @@ jobs:
         }
         EOF
         )
-        
+
         # 发送请求
         curl -X POST "$WEBHOOK_URL" \
           -H "Content-Type: application/json" \
           -d "$MESSAGE_JSON"
+
