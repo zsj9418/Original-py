@@ -5,8 +5,6 @@ import base64
 import json
 import pyaes
 import binascii
-import yaml
-import re
 from datetime import datetime
 from collections import deque
 from urllib.parse import quote, urlparse
