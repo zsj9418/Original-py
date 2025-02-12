@@ -40,10 +40,12 @@ jobs:
         # 获取北京时间并格式化为中文时间戳
         UPDATE_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
-        # 从日志文件获取最新新增节点数
+        # 从日志文件获取最新新增节点数（确保读取最新的日志）
         NEW_NODES=$(tail -n 4 update_history.md | grep -oP '新增节点数: \K\d+' | tail -1)
+        NEW_NODES=${NEW_NODES:-0}  # 如果 NEW_NODES 为空，设置为 0
 
-        # 获取最新节点（最多5条）
+        # 在同一个步骤中读取节点总数和最新节点列表
+        TOTAL_NODES=$(wc -l < nodes.txt)
         LATEST_NODES=$(tail -n 5 nodes.txt | sed 's/"/\\"/g')
 
         # 构建JSON消息体
@@ -53,8 +55,8 @@ jobs:
           "markdown": {
             "content": "**🔄 节点更新通知**\n
             > **更新时间**: \`${UPDATE_TIME}\`\n
-            > **新增节点数**: \`${NEW_NODES:-0}\`\n
-            > **节点总数**: \`$(wc -l < nodes.txt)\`\n\n
+            > **新增节点数**: \`${NEW_NODES}\`\n
+            > **节点总数**: \`${TOTAL_NODES}\`\n\n
             **最新节点列表**:\n
             \`\`\`\n
             ${LATEST_NODES}
@@ -68,4 +70,3 @@ jobs:
         curl -X POST "$WEBHOOK_URL" \
           -H "Content-Type: application/json" \
           -d "$MESSAGE_JSON"
-
