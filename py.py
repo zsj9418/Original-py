@@ -33,9 +33,9 @@ def generate_hysteria_uri(config, version):
     base_params = {
         "upmbps": "500",
         "downmbps": "500",
-        "obfs": "xplus",
-        "obfsParam": config["obfs"],
-        "sni": config["server_name"]
+        "obfs": config.get("obfs", "xplus"),
+        "obfsParam": config.get("obfs_param", ""),
+        "sni": config.get("server_name", "")
     }
     
     if version == 1:
@@ -44,7 +44,7 @@ def generate_hysteria_uri(config, version):
         return f"hysteria2://{config['auth_str']}@{config['server']}:{config['port']}?{format_params(base_params)}#Hysteria2-{config['server']}"
 
 def format_params(params):
-    return "&".join([f"{k}={quote(str(v))}" for k,v in params.items()])
+    return "&".join([f"{k}={quote(str(v))}" for k,v in params.items() if v])
 
 def fetch_hysteria_nodes():
     hysteria_nodes = []
@@ -72,32 +72,54 @@ def maintain_history(new_nodes):
     
     history.extend(added_nodes)
     
-    if len(history) > MAX_HISTORY*20:
-        history = deque(list(history)[-(MAX_HISTORY*20):], MAX_HISTORY*20)
-    
     with open(HISTORY_FILE, "w", encoding='utf-8') as f:
         f.write("\n".join(history))
     
     return added_nodes
 
 def update_log(status, count):
-    # 获取格式化的北京时间
     log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_entry = f"## {log_time}\n"
-    log_entry += f"- 状态: {'成功' if status else '失败'}\n"
+    log_entry = f"## {log_time}\n- 状态: {'成功' if status else '失败'}\n"
+    
+    if status:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            total = len(f.readlines())
+        log_entry += f"- 新增节点数: {count}\n- 累计节点总数: {total}\n"
+    else:
+        log_entry += "- 错误详情: 接口请求失败\n"
+    
+    with open(LOG_FILE, "a", encoding='utf-8') as f:
+        f.write(log_entry + "\n")
 
-# 修改后的主处理逻辑
+a = 'http://api.skrapp.net/api/serverlist'
+b = {
+    'accept': '/',
+    'accept-language': 'zh-Hans-CN;q=1, en-CN;q=0.9',
+    'appversion': '1.3.1',
+    'user-agent': 'SkrKK/1.3.1 (iPhone; iOS 13.5; Scale/2.00)',
+    'content-type': 'application/x-www-form-urlencoded',
+    'Cookie': 'PHPSESSID=fnffo1ivhvt0ouo6ebqn86a0d4'
+}
+c = {'data': '4265a9c353cd8624fd2bc7b5d75d2f18b1b5e66ccd37e2dfa628bcb8f73db2f14ba98bc6a1d8d0d1c7ff1ef0823b11264d0addaba2bd6a30bdefe06f4ba994ed'}
+d = b'65151f8d966bf596'
+e = b'88ca0f0ea1ecf975'
+
+def f(g, d, e):
+    h = pyaes.AESModeOfOperationCBC(d, iv=e)
+    i = b''.join(h.decrypt(g[j:j+16]) for j in range(0, len(g), 16))
+    return i[:-i[-1]]
+
 try:
     # 获取原有SS节点
     ss_response = requests.post(a, headers=b, data=c, timeout=15)
-    
     all_nodes = []
     
-    # 处理SS节点
     if ss_response.status_code == 200:
         decrypted_data = json.loads(f(binascii.unhexlify(ss_response.text.strip()), d, e))
         for item in decrypted_data['data']:
-            ss_uri = f"ss://{base64.b64encode(f'aes-256-cfb:{item['password']}@{item['ip']}:{item['port']}'.encode()).decode()}#{item['title']}"
+            # 修正引号嵌套问题
+            ss_config = f"aes-256-cfb:{item['password']}@{item['ip']}:{item['port']}"
+            ss_uri = f"ss://{base64.b64encode(ss_config.encode()).decode()}#{item['title']}"
             all_nodes.append(ss_uri)
     
     # 获取Hysteria节点
