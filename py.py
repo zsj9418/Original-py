@@ -40,6 +40,10 @@ class ProtocolValidator:
     def validate_address(address):
         return re.match(r'^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$', address) or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', address)
 
+        return [n for n in nodes if
+                ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and
+                ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0]))]
+    
     except json.JSONDecodeError as json_e: # 捕获 JSON 解析错误
         print(f"🚨 JSON 解析错误 [{protocol.upper()}] (文件名: {filename}): {str(json_e)}")
         print(f"🔧 问题内容片段:\n{content[:150]}...")
