@@ -16,7 +16,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.3 (Restore Hysteria Fetching)")
+print("Version: 2.4 (Fixed Port Parsing for IPv6)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -80,41 +80,41 @@ def fetch_and_convert_hysteria(url):
                 # Hysteria 1
                 auth_str = config.get("auth_str", "")
                 server = config.get("server", "")
-                fast_open = config.get("fast_open", True)  # 暂时保留
+                fast_open = config.get("fast_open", True)
                 insecure = config.get("insecure", False)
                 server_name = config.get("server_name", "")
                 alpn = config.get("alpn", "h3")
-                up = config.get("up", "500") # 默认 "500"
-                down = config.get("down", "1000") # 默认 "1000"
+                up = config.get("up", "500")
+                down = config.get("down", "1000")
                 obfs = config.get("obfs", "")
                 obfs_param = config.get("obfsParam", "")
                 protocol = config.get("protocol", "udp")
                 remarks = config.get("remarks", "")
 
-                # 简化 server 验证：只检查是否为空
                 if not server:
                     print("错误：server 字段不能为空")
                     return None
 
-                host, *port_part = server.split(":")
-                if not port_part:
+                # 使用 rpartition 从右侧分割，只分割一次
+                host, _, port_str = server.rpartition(":")
+                if not port_str:
                     print("错误：server 字段必须包含端口 (例如: example.com:443)")
                     return None
                 try:
-                    port = int(port_part[0])
+                    port = int(port_str)
                 except ValueError:
                     print("错误：无效的端口号")
                     return None
-                # 构建 query string (不再进行过于严格的检查)
+
                 query_params = []
                 query_params.append(f"protocol={protocol}")
                 if auth_str:
                     query_params.append(f"auth={auth_str}")
-                query_params.append(f"peer={server_name}")  # 允许为空
+                query_params.append(f"peer={server_name}")
                 query_params.append(f"insecure={int(insecure)}")
-                query_params.append(f"upmbps={str(up)}")  # 允许字符串和数字
-                query_params.append(f"downmbps={str(down)}")# 允许字符串和数字
-                query_params.append(f"alpn={alpn}") # 允许为空
+                query_params.append(f"upmbps={str(up)}")
+                query_params.append(f"downmbps={str(down)}")
+                query_params.append(f"alpn={alpn}")
                 if obfs:
                     query_params.append(f"obfs={obfs}")
                 if obfs_param:
@@ -133,23 +133,24 @@ def fetch_and_convert_hysteria(url):
                 server = config.get("server", "")
                 fast_open = config.get("fast_open", True)
                 insecure = config.get("insecure", False)
-                server_name = config.get("server_name", "")  # Hysteria2 可能不需要
+                server_name = config.get("server_name", "")
                 alpn = config.get("alpn", "h3")
-                protocol = config.get("protocol", "udp")  # 暂时保留
-                up = config.get("up", "500Mbps")  # 默认 "500Mbps"
-                down = config.get("down", "1000Mbps")  # 默认 "1000Mbps"
+                protocol = config.get("protocol", "udp")
+                up = config.get("up", "500Mbps")
+                down = config.get("down", "1000Mbps")
                 remarks = config.get("remarks", "")
 
                 if not server:
                     print("错误：server 字段不能为空")
                     return None
 
-                hostname, *port_part = server.split(":")
-                if not port_part:
-                     print("错误: server 字段必须包含端口号 (例如: example.com:443)")
-                     return None
+                # 使用 rpartition 从右侧分割，只分割一次
+                hostname, _, port_str = server.rpartition(":")
+                if not port_str:
+                    print("错误: server 字段必须包含端口号 (例如: example.com:443)")
+                    return None
                 try:
-                    port = int(port_part[0])
+                    port = int(port_str)
                 except ValueError:
                     print("错误：无效的端口")
                     return None
@@ -157,9 +158,9 @@ def fetch_and_convert_hysteria(url):
                 query_params = []
                 query_params.append(f"insecure={int(insecure)}")
                 query_params.append(f"fastopen={int(fast_open)}")
-                query_params.append(f"alpn={alpn}") #允许为空
-                query_params.append(f"up={up}") # 允许为空
-                query_params.append(f"down={down}")# 允许为空
+                query_params.append(f"alpn={alpn}")
+                query_params.append(f"up={up}")
+                query_params.append(f"down={down}")
 
                 if auth:
                     auth_encoded = base64.b64encode(auth.encode()).decode()
@@ -168,7 +169,7 @@ def fetch_and_convert_hysteria(url):
                 query_string = "&".join(query_params)
                 hysteria2_uri = f"hysteria2://{hostname}:{port}/?{query_string}"
                 if remarks:
-                   hysteria2_uri += f"#{remarks}"
+                    hysteria2_uri += f"#{remarks}"
                 return hysteria2_uri
         else:
             print("错误：无效的 Hysteria 配置文件 - 缺少 auth_str 或 auth")
