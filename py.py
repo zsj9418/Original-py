@@ -60,33 +60,72 @@ def fetch_hysteria_nodes():
             print(f"Hysteria{idx+1} 配置获取失败: {str(e)}")
     return hysteria_nodes
 
-def maintain_history(new_nodes):
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding='utf-8') as f:
-            history = deque(f.read().splitlines(), MAX_HISTORY*20)
-    else:
-        history = deque(maxlen=MAX_HISTORY*20)
+def fetch_hysteria_nodes():
+    hysteria_nodes = []
+    for idx, url in enumerate(HYSTERIA_URLS):
+        try:
+            resp = requests.get(url, timeout=15)
+            if resp.status_code == 200:
+                # 将配置转换为列表（适配单配置和多配置场景）
+                configs = json.loads(resp.text)
+                if not isinstance(configs, list):
+                    configs = [configs]
+                
+                for config in configs:
+                    # 处理Hysteria版本差异
+                    if idx == 0:  # Hysteria1
+                        parsed = {
+                            "server": config["server"].split(",")[0].split(":")[0],
+                            "port": config["server"].split(":")[1].split(",")[0],
+                            "obfs": config.get("obfs", ""),
+                            "server_name": config.get("server_name", ""),
+                            "auth_str": config.get("auth_str", "")
+                        }
+                    else:  # Hysteria2
+                        parsed = {
+                            "server": config["server"].split(":")[0],
+                            "port": config["server"].split(":")[1].split(",")[0],
+                            "auth_str": config.get("auth", ""),
+                            "obfs": config.get("obfs", ""),
+                            "server_name": config.get("tls", {}).get("sni", "")
+                        }
+                    
+                    # 添加带宽参数处理
+                    if idx == 0:
+                        parsed.update({
+                            "up_mbps": config.get("up_mbps", 500),
+                            "down_mbps": config.get("down_mbps", 500)
+                        })
+                    else:
+                        parsed.update({
+                            "up_mbps": int(config.get("bandwidth", {}).get("up", "500 mbps").split()[0]),
+                            "down_mbps": int(config.get("bandwidth", {}).get("down", "500 mbps").split()[0])
+                        })
+                    
+                    uri = generate_hysteria_uri(parsed, idx+1)
+                    hysteria_nodes.append(uri)
+        except Exception as e:
+            print(f"Hysteria{idx+1} 配置解析失败: {str(e)}")
+    return hysteria_nodes
 
-    unique_nodes = set(history)
-    added_nodes = [n for n in new_nodes if n not in unique_nodes]
+def generate_hysteria_uri(config, version):
+    base_params = {
+        "upmbps": config.get("up_mbps", 500),
+        "downmbps": config.get("down_mbps", 500),
+        "obfs": config.get("obfs", "xplus"),
+        "obfsParam": config.get("obfsParam", ""),
+        "sni": config.get("server_name", "")
+    }
     
-    history.extend(added_nodes)
+    # 过滤空参数
+    params = {k: v for k, v in base_params.items() if v}
     
-    with open(HISTORY_FILE, "w", encoding='utf-8') as f:
-        f.write("\n".join(history))
-    
-    return added_nodes
-
-def update_log(status, count):
-    log_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_entry = f"## {log_time}\n- 状态: {'成功' if status else '失败'}\n"
-    
-    if status:
-        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-            total = len(f.readlines())
-        log_entry += f"- 新增节点数: {count}\n- 累计节点总数: {total}\n"
+    if version == 1:
+        return f"hysteria://{config['server']}:{config['port']}?{format_params(params)}#Hysteria1-{config['server']}"
     else:
-        log_entry += "- 错误详情: 接口请求失败\n"
+        auth_str = f"{config['auth_str']}@" if config.get("auth_str") else ""
+        return f"hysteria2://{auth_str}{config['server']}:{config['port']}?{format_params(params)}#Hysteria2-{config['server']}"
+
     
     with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
