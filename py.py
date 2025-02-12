@@ -9,7 +9,7 @@ import yaml
 import re
 from datetime import datetime
 from collections import deque
-from urllib.parse import urljoin, urlencode，quote, urlparse
+from urllib.parse import quote, urlparse
 from socket import socket, AF_INET, SOCK_STREAM
 
 # 强制设置中国时区
