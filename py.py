@@ -70,7 +70,9 @@ def fetch_hysteria_config(url):
     try:
         response = requests.get(url, timeout=15)
         if response.status_code == 200:
-            return response.json()
+            config = response.json()
+            print(f"成功获取 Hysteria 配置：{config}")  # 调试信息
+            return config
         else:
             print(f"Failed to fetch Hysteria config from {url}, status code: {response.status_code}")
             return None
@@ -79,11 +81,15 @@ def fetch_hysteria_config(url):
         return None
 
 def convert_hysteria_to_uri(config, config_type):
-    if config_type == "hysteria":
-        return f"hysteria://{config['server']}:{config['port']}?protocol={config['protocol']}&auth={config['auth']}&peer={config['peer']}&insecure={config['insecure']}&upmbps={config['upmbps']}&downmbps={config['downmbps']}&alpn={config['alpn']}"
-    elif config_type == "hysteria2":
-        return f"hysteria2://{config['server']}:{config['port']}?auth={config['auth']}&insecure={config['insecure']}&sni={config['sni']}&alpn={config['alpn']}"
-    else:
+    try:
+        if config_type == "hysteria":
+            return f"hysteria://{config['server']}:{config['port']}?protocol={config['protocol']}&auth={config['auth']}&peer={config['peer']}&insecure={config['insecure']}&upmbps={config['upmbps']}&downmbps={config['downmbps']}&alpn={config['alpn']}"
+        elif config_type == "hysteria2":
+            return f"hysteria2://{config['server']}:{config['port']}?auth={config['auth']}&insecure={config['insecure']}&sni={config['sni']}&alpn={config['alpn']}"
+        else:
+            return None
+    except KeyError as e:
+        print(f"配置缺失字段：{str(e)}，配置内容：{config}")  # 调试信息
         return None
 
 a = 'http://api.skrapp.net/api/serverlist'
