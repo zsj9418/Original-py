@@ -19,7 +19,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 3.1 (FIXED)")
+print("Version: 3.2 (FIXED)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -53,9 +53,12 @@ def fetch_github_configs():
                 print(f"📄 尝试获取 hysteria 配置: {url}")
                 response = requests.get(url, headers=headers)
                 if response.status_code == 200:
-                    parsed = parse_config(response.text, 'hysteria')
-                    print(f"🎯 解析到 {len(parsed)} 个节点")
-                    nodes += parsed
+                    try:
+                        parsed = parse_config(response.text, 'hysteria')
+                        print(f"🎯 解析到 {len(parsed)} 个节点")
+                        nodes += parsed
+                    except Exception as e:
+                        print(f"🚨 [HYSTERIA 解析错误] 解析 config.json 时发生错误: {str(e)}")
                 else:
                     print(f"⛔ hysteria 文件下载失败 [{response.status_code}]")
             except Exception as e:
@@ -67,9 +70,13 @@ def fetch_github_configs():
                 print(f"📄 尝试获取 hysteria2 配置: {url}")
                 response = requests.get(url, headers=headers)
                 if response.status_code == 200:
-                    parsed = parse_config(response.text, 'hysteria2')
-                    print(f"🎯 解析到 {len(parsed)} 个节点")
-                    nodes += parsed
+                    try:
+                        parsed = parse_config(response.text, 'hysteria2')
+                        print(f"🎯 解析到 {len(parsed)} 个节点")
+                        nodes += parsed
+                    except Exception as e:
+                        print(f"🚨 [HYSTERIA2 解析错误] 解析 config.json 时发生错误: {str(e)}")
+
                 else:
                     print(f"⛔ hysteria2 文件下载失败 [{response.status_code}]")
             except Exception as e:
@@ -111,22 +118,18 @@ def parse_config(content, protocol):
             
         nodes = []
         
-        # 通用验证
-        if not ProtocolValidator.validate_port(config.get('port', 0)):
-            raise ValueError("端口号无效")
-
         # 协议特定解析
         if protocol == 'hysteria2':
+            server = config.get('server', '').split(',')[0] # 提取第一个server地址, 避免逗号分隔的server
+            port = int(config.get('port', 443))  # 确保端口是整数
             auth = config.get('auth', {}).get('password', '')
-            server = config.get('server', '')
-            port = config.get('port', 443)
             
             tls_config = config.get('tls', {})
             obfs_config = config.get('obfs', {})
             
             params = {
-                'upmbps': config.get('up_mbps'),
-                'downmbps': config.get('down_mbps'),
+                'upmbps': config.get('bandwidth', {}).get('up') if config.get('bandwidth') else config.get('up_mbps'),  # 兼容旧版本
+                'downmbps': config.get('bandwidth', {}).get('down') if config.get('bandwidth') else config.get('down_mbps'), # 兼容旧版本
                 'insecure': int(tls_config.get('insecure', 0)),
                 'sni': tls_config.get('sni', ''),
                 'alpn': ','.join(tls_config.get('alpn', [])),
@@ -138,12 +141,12 @@ def parse_config(content, protocol):
             nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
 
         elif protocol == 'hysteria':
-            auth = config.get('auth', {}).get('password', '') # hysteria 1 应该从auth中获取密码
-            server = config.get('server', '')
-            port = config.get('port', 443)
+            server = config.get('server', '').split(',')[0] # 提取第一个server地址, 避免逗号分隔的server
+            port = int(config.get('port', 443))  # 确保端口是整数
+            auth = config.get('auth', {}).get('password', '')
             
             params = {
-                'protocol': config.get('protocol', 'udp'), # hysteria 1 需要指定协议
+                'protocol': config.get('protocol', 'udp'),
                 'upmbps': config.get('up_mbps'),
                 'downmbps': config.get('down_mbps'),
                 'alpn': ','.join(config.get('alpn', [])),
@@ -178,9 +181,10 @@ def parse_config(content, protocol):
                     nodes.append(f"vless://{user.get('id', '')}@{server}:{port}?{urlencode(params)}")
 
         # 过滤无效节点
-        return [n for n in nodes if 
-                ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and 
-                ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0]))]
+        return [n for n in nodes if
+                '@' in n and ':' in n and ProtocolValidator.validate_address(n.split('@')[1].split(':')[0]) and
+                (n.split(':')[-1].isdigit() and ProtocolValidator.validate_port(int(n.split(':')[-1].split('/')[0])) if '/' in n.split(':')[-1] else ProtocolValidator.validate_port(int(n.split(':')[-1])))]
+
 
     except Exception as e:
         print(f"🚨 [{protocol.upper()} 解析错误] {str(e)}")
