@@ -16,7 +16,7 @@ print("      H͜͡E͜͡L͜͡L͜͡O͜͡ ͜͡W͜͡O͜͡R͜͡L͜͡D͜͡ ͜͡E͜͡X�
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("Author : 𝐼𝑢")
 print(f"Date   : {datetime.today().strftime('%Y-%m-%d')}")
-print("Version: 2.2 (Sing-box v1.10.7 Compatibility)")
+print("Version: 2.3 (Restore Hysteria Fetching)")
 print("𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟 𓆝 𓆟 𓆞 𓆟")
 print("𝐼𝑢:")
 
@@ -80,69 +80,51 @@ def fetch_and_convert_hysteria(url):
                 # Hysteria 1
                 auth_str = config.get("auth_str", "")
                 server = config.get("server", "")
-                fast_open = config.get("fast_open", True)
+                fast_open = config.get("fast_open", True)  # 暂时保留
                 insecure = config.get("insecure", False)
                 server_name = config.get("server_name", "")
                 alpn = config.get("alpn", "h3")
-                up = config.get("up", "500")  # 默认值
-                down = config.get("down", "1000")  # 默认值
+                up = config.get("up", "500") # 默认 "500"
+                down = config.get("down", "1000") # 默认 "1000"
                 obfs = config.get("obfs", "")
                 obfs_param = config.get("obfsParam", "")
                 protocol = config.get("protocol", "udp")
                 remarks = config.get("remarks", "")
 
-                # 验证 server 格式
+                # 简化 server 验证：只检查是否为空
                 if not server:
-                    raise ValueError("server 字段不能为空")
-                if ":" not in server:
-                    raise ValueError("server 字段必须包含端口号 (例如: example.com:443)")
+                    print("错误：server 字段不能为空")
+                    return None
 
-                host, port_str = server.split(":")
+                host, *port_part = server.split(":")
+                if not port_part:
+                    print("错误：server 字段必须包含端口 (例如: example.com:443)")
+                    return None
                 try:
-                    port = int(port_str)
+                    port = int(port_part[0])
                 except ValueError:
-                    raise ValueError("无效的端口号")
-
-                # 构建 query string, 并进行严格的参数检查
+                    print("错误：无效的端口号")
+                    return None
+                # 构建 query string (不再进行过于严格的检查)
                 query_params = []
-                if protocol:
-                    query_params.append(f"protocol={protocol}")
-                else:
-                    print("警告: protocol 字段为空, 可能导致兼容性问题")
-
+                query_params.append(f"protocol={protocol}")
                 if auth_str:
                     query_params.append(f"auth={auth_str}")
-
-                if server_name:
-                     query_params.append(f"peer={server_name}")
-                else:
-                    print("警告: server_name/peer 字段为空, 可能导致 TLS 握手失败")
-
+                query_params.append(f"peer={server_name}")  # 允许为空
                 query_params.append(f"insecure={int(insecure)}")
-
-                # 检查 up 和 down, 并转换为字符串
-                try:
-                    up_str = str(int(up))  # 确保是整数
-                    down_str = str(int(down)) # 确保是整数
-                    query_params.append(f"upmbps={up_str}")
-                    query_params.append(f"downmbps={down_str}")
-                except ValueError:
-                    raise ValueError("up 和 down 必须是整数")
-                if alpn:
-                    query_params.append(f"alpn={alpn}")
-                else:
-                   print("警告: alpn 字段为空，可能导致一些客户端无法连接")
-
+                query_params.append(f"upmbps={str(up)}")  # 允许字符串和数字
+                query_params.append(f"downmbps={str(down)}")# 允许字符串和数字
+                query_params.append(f"alpn={alpn}") # 允许为空
                 if obfs:
                     query_params.append(f"obfs={obfs}")
-                    if obfs_param:
-                        query_params.append(f"obfsParam={obfs_param}")
+                if obfs_param:
+                    query_params.append(f"obfsParam={obfs_param}")
 
                 query_string = "&".join(query_params)
-
                 hysteria_uri = f"hysteria://{host}:{port}?{query_string}"
                 if remarks:
                     hysteria_uri += f"#{remarks}"
+
                 return hysteria_uri
 
             else:
@@ -151,58 +133,46 @@ def fetch_and_convert_hysteria(url):
                 server = config.get("server", "")
                 fast_open = config.get("fast_open", True)
                 insecure = config.get("insecure", False)
-                server_name = config.get("server_name", "")  # Hysteria2 中可能不需要
+                server_name = config.get("server_name", "")  # Hysteria2 可能不需要
                 alpn = config.get("alpn", "h3")
-                protocol = config.get("protocol", "udp")
-                up = config.get("up", "500Mbps")
-                down = config.get("down", "1000Mbps")
-                remarks = config.get("remarks", "")  # 添加备注支持
+                protocol = config.get("protocol", "udp")  # 暂时保留
+                up = config.get("up", "500Mbps")  # 默认 "500Mbps"
+                down = config.get("down", "1000Mbps")  # 默认 "1000Mbps"
+                remarks = config.get("remarks", "")
 
                 if not server:
-                    raise ValueError("server 字段不能为空")
-                if ":" not in server:
-                    raise ValueError("server 字段必须包含端口号 (例如: example.com:443)")
+                    print("错误：server 字段不能为空")
+                    return None
 
-                hostname, port_str = server.split(":")
+                hostname, *port_part = server.split(":")
+                if not port_part:
+                     print("错误: server 字段必须包含端口号 (例如: example.com:443)")
+                     return None
                 try:
-                    port = int(port_str)
+                    port = int(port_part[0])
                 except ValueError:
-                    raise ValueError("无效的端口号")
+                    print("错误：无效的端口")
+                    return None
 
                 query_params = []
                 query_params.append(f"insecure={int(insecure)}")
                 query_params.append(f"fastopen={int(fast_open)}")
-
-                if alpn:
-                    query_params.append(f"alpn={alpn}")
-                else:
-                    print("警告: alpn 字段为空，可能导致一些客户端无法连接")
-
-                # 检查 up 和 down (保留 Mbps 单位)
-                if up:
-                  query_params.append(f"up={up}")
-                else:
-                  print("警告: up 字段为空, 可能导致客户端限速配置错误")
-                if down:
-                  query_params.append(f"down={down}")
-                else:
-                  print("警告: down 字段为空, 可能导致客户端限速配置错误")
-
+                query_params.append(f"alpn={alpn}") #允许为空
+                query_params.append(f"up={up}") # 允许为空
+                query_params.append(f"down={down}")# 允许为空
 
                 if auth:
                     auth_encoded = base64.b64encode(auth.encode()).decode()
                     query_params.append(f"auth={auth_encoded}")
 
                 query_string = "&".join(query_params)
-
                 hysteria2_uri = f"hysteria2://{hostname}:{port}/?{query_string}"
                 if remarks:
-                    hysteria2_uri += f"#{remarks}"
-
+                   hysteria2_uri += f"#{remarks}"
                 return hysteria2_uri
-
         else:
-            raise ValueError("无效的 Hysteria 配置文件: 缺少 auth_str 或 auth 字段")
+            print("错误：无效的 Hysteria 配置文件 - 缺少 auth_str 或 auth")
+            return None
 
     except requests.RequestException as e:
         print(f"请求 Hysteria 配置失败: {e}")
@@ -210,11 +180,8 @@ def fetch_and_convert_hysteria(url):
     except json.JSONDecodeError:
         print(f"解析 Hysteria 配置 JSON 失败")
         return None
-    except ValueError as e:
-        print(f"配置错误: {e}")
-        return None
-    except Exception as e:  # 捕获其他可能的异常
-        print(f"发生未知错误: {e}")
+    except Exception as e:
+        print(f"发生其他错误: {e}")
         return None
 
 def fetch_ss_nodes():
