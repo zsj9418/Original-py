@@ -28,13 +28,13 @@ MAX_HISTORY = 4
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
 GITHUB_REPO = "https://api.github.com/repos/Alvin9999/pac2/contents/"
-TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'mieru', 'singbox', 'v2ray', 'vmess']
+TARGET_DIRS = ['hysteria2', 'hysteria', 'juicity', 'singbox', 'v2ray', 'vmess']
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'ghp_abc123')  # 替换为有效token
 
 class ProtocolValidator:
     @staticmethod
     def validate_port(port):
-        return 1 <= port <= 65535
+        return isinstance(port, int) and 1 <= port <= 65535
 
     @staticmethod
     def validate_address(address):
@@ -87,8 +87,8 @@ def parse_config(content, protocol):
         # 协议特定解析
         if protocol == 'hysteria2':
             auth = config.get('auth', {}).get('password', '')
-            server = config.get('server', '')
-            port = config.get('port', 443)
+            server = config.get('server', '').split(':')[0]  # 处理可能存在的端口粘连
+            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
             
             tls_config = config.get('tls', {})
             obfs_config = config.get('obfs', {})
@@ -96,20 +96,23 @@ def parse_config(content, protocol):
             params = {
                 'upmbps': config.get('up_mbps'),
                 'downmbps': config.get('down_mbps'),
-                'insecure': int(tls_config.get('insecure', 0)),
                 'sni': tls_config.get('sni', ''),
+                'insecure': int(tls_config.get('insecure', 0)),
                 'alpn': ','.join(tls_config.get('alpn', [])),
                 'obfs': obfs_config.get('type', ''),
-                'obfs-password': obfs_config.get('password', ''),
-                'congestion': config.get('congestion_control', '')
+                'obfs-password': obfs_config.get('password', '')
             }
             params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
+            
+            # 生成兼容sing-box的URI
+            node_str = f"hy2://{auth}@{server}:{port}?{urlencode(params)}"
+            if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
+                nodes.append(node_str)
 
         elif protocol == 'hysteria':
             auth = config.get('auth_str', '')
-            server = config.get('server', '')
-            port = config.get('port', 443)
+            server = config.get('server', '').split(':')[0]
+            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
             
             params = {
                 'protocol': config.get('protocol', 'udp'),
@@ -121,30 +124,35 @@ def parse_config(content, protocol):
                 'insecure': int(config.get('insecure', 0))
             }
             params = {k: v for k, v in params.items() if v not in [None, '', 0]}
-            nodes.append(f"hy://{auth}@{server}:{port}?{urlencode(params)}")
+            node_str = f"hy://{auth}@{server}:{port}?{urlencode(params)}"
+            if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
+                nodes.append(node_str)
 
         elif protocol == 'juicity':
-            server = config.get('server', '')
-            port = config.get('port', 443)
-            for user in config.get('users', []):
+            users = config.get('users', [])
+            if not isinstance(users, list):
+                users = [users]
+            server = config.get('server', '').split(':')[0]
+            port = int(config.get('server', ':443').split(':')[-1]) if ':' in config.get('server', '') else 443
+            for user in users:
                 uuid = user.get('uuid', '')
-                nodes.append(f"juicity://{uuid}@{server}:{port}")
+                node_str = f"juicity://{uuid}@{server}:{port}"
+                if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
+                    nodes.append(node_str)
 
         elif protocol == 'singbox':
-            for inbound in config.get('inbounds', []):
+            inbounds = config.get('inbounds', [])
+            for inbound in inbounds:
                 if inbound.get('type') == 'vless':
-                    server = inbound.get('server', '')
-                    port = inbound.get('port', 443)
-                    user = inbound.get('users', [{}])[0]
-                    params = {
-                        'security': 'tls' if inbound.get('tls') else 'none',
-                        'sni': inbound.get('tls_settings', {}).get('server_name', ''),
-                        'flow': user.get('flow', ''),
-                        'pbk': user.get('publicKey', ''),
-                        'sid': user.get('shortId', '')
-                    }
-                    params = {k: v for k, v in params.items() if v}
-                    nodes.append(f"vless://{user.get('id', '')}@{server}:{port}?{urlencode(params)}")
+                    server = inbound.get('server', '').split(':')[0]
+                    port = int(inbound.get('server', ':443').split(':')[-1]) if ':' in inbound.get('server', '') else 443
+                    user_id = inbound.get('users', [{}])[0].get('id', '')
+                    security = 'tls' if inbound.get('tls') else 'none'
+                    network = inbound.get('network', 'tcp')
+                    params = f"security={security}&type={network}"
+                    node_str = f"singbox://{user_id}@{server}:{port}?{params}"
+                    if ProtocolValidator.validate_address(server) and ProtocolValidator.validate_port(port):
+                        nodes.append(node_str)
 
         # 过滤无效节点
         return [n for n in nodes if 
@@ -194,86 +202,6 @@ def update_log(status, count):
     
     with open(LOG_FILE, "a", encoding='utf-8') as f:
         f.write(log_entry + "\n")
-
-def fetch_github_configs():
-    nodes = []
-    for dir_path in TARGET_DIRS:
-        try:
-            response = requests.get(urljoin(GITHUB_REPO, dir_path))
-            if response.status_code == 200:
-                contents = response.json()
-                for item in contents:
-                    if item['type'] == 'file' and item['name'].endswith(('.json', '.yaml', '.yml')):
-                        file_content = requests.get(item['download_url']).text
-                        nodes += parse_config(file_content, dir_path)
-        except Exception as e:
-            print(f"Error fetching {dir_path}: {str(e)}")
-    return nodes
-
-def parse_config(content, protocol):
-    try:
-        nodes = []
-        config = yaml.safe_load(content) if protocol in ['hysteria2', 'hysteria'] else json.loads(content)
-        
-        if protocol == 'hysteria2':
-            # 适配新版Hysteria2配置结构
-            auth = config.get('auth', {}).get('password', 'default-auth')
-            server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)
-            up = config.get('up_mbps', 100)
-            down = config.get('down_mbps', 100)
-            params = {
-                'upmbps': up,
-                'downmbps': down,
-                'insecure': int(config.get('tls', {}).get('insecure', 0))
-            }
-            nodes.append(f"hy2://{auth}@{server}:{port}?{urlencode(params)}")
-            
-        elif protocol == 'hysteria':
-            auth_str = config.get('auth_str', 'default-auth')
-            server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)
-            up = config.get('up_mbps', 10)
-            down = config.get('down_mbps', 50)
-            params = {
-                'protocol': config.get('protocol', 'udp'),
-                'upmbps': up,
-                'downmbps': down,
-                'insecure': int(config.get('insecure', 0))
-            }
-            nodes.append(f"hy://{auth_str}@{server}:{port}?{urlencode(params)}")
-            
-        elif protocol == 'juicity':
-            users = config.get('users', [])
-            if not isinstance(users, list):
-                users = [users]
-            server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)
-            for user in users:
-                uuid = user.get('uuid', 'default-uuid')
-                nodes.append(f"juicity://{uuid}@{server}:{port}")
-                
-        elif protocol == 'mieru':
-            username = config.get('username', 'default-user')
-            password = config.get('password', 'default-pass')
-            server = config.get('server', '0.0.0.0')
-            port = config.get('port', 443)
-            nodes.append(f"mieru://{username}:{password}@{server}:{port}")
-            
-        elif protocol == 'singbox':
-            inbounds = config.get('inbounds', [])
-            for inbound in inbounds:
-                if inbound.get('type') == 'vless':
-                    server = inbound.get('server', '0.0.0.0')
-                    port = inbound.get('port', 443)
-                    user_id = inbound.get('users', [{}])[0].get('id', 'default-id')
-                    security = 'tls' if inbound.get('tls') else 'none'
-                    network = inbound.get('network', 'tcp')
-                    params = f"security={security}&type={network}"
-                    nodes.append(f"singbox://{user_id}@{server}:{port}?{params}")
-    except Exception as e:
-        print(f"Error parsing {protocol} config: {str(e)}")
-    return nodes
 
 # 原有解密逻辑保持不变
 a = 'http://api.skrapp.net/api/serverlist'
