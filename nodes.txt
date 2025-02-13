@@ -45,3 +45,15 @@ ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMjE4LjEyNC4xODQ6NDQz#HK, Los Angeles
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMTgwLjkuMTAwOjQ0Mw==#JP, Osaka
 hysteria://185.22.155.71:63717?upmbps=11&downmbps=55&obfs=dongtaiwang.com&sni=apple.com#Hysteria1-185.22.155.71
 hysteria2://dongtaiwang.com@46.17.41.189:51224?upmbps=11&downmbps=55&sni=www.bing.com#Hysteria2-46.17.41.189
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuOTEuMTAwLjE1NTo0NDM=#US, Dallas 2
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMTguMTgyLjYuODg6NDQz#JP, Osaka
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuODkuMTMxLjEzNDo0NDM=#CA, Vancouver
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTIuNDEuMTY4LjIzMTo0NDM=#HK, Los Angeles
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANDMuMjAxLjI1NC43NDo0NDM=#SG, Singapore
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuNzcuODUuMjU0OjQ0Mw==#JP, Tokyo 2
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMTgwLjkuMTAwOjQ0Mw==#KR, Incheon
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMS4xNjQ6NDQz#HK, New Territories
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMjQ0LjAuNDo0NDM=#US, Houston
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuOTUuNTAuMTY3OjQ0Mw==#TW, Taipei
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMjE2LjEyNzo0NDM=#HK, Kowloon
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTIuMTk1LjIyMC43OjQ0Mw==#JP, Tokyo
