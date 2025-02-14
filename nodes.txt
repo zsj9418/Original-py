@@ -1,13 +1,3 @@
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANDMuMjAxLjI1NC43NDo0NDM=#SG, Singapore
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuNzcuODUuMjU0OjQ0Mw==#JP, Tokyo 2
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMTgwLjkuMTAwOjQ0Mw==#KR, Incheon
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMS4xNjQ6NDQz#HK, New Territories
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuMjQ0LjAuNDo0NDM=#US, Houston
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTQuOTUuNTAuMTY3OjQ0Mw==#TW, Taipei
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMjE2LjEyNzo0NDM=#HK, Kowloon
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTIuMTk1LjIyMC43OjQ0Mw==#JP, Tokyo
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMjE2LjEyNzo0NDM=#SG, Singapore
-ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTIuNDEuMTY4LjIzMTo0NDM=#US, Dallas 2
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANDQuMjQzLjQ1LjE0Njo0NDM=#CA, Vancouver
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuODkuMTMxLjEzNDo0NDM=#US, Houston
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4zOC4xNzguMjA0OjQ0Mw==#HK, Kowloon
@@ -34,3 +24,13 @@ ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTIuMTk0LjE4Ni4xOTc6NDQz#HK, Kowloon
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANDMuMjA2LjIxNi45NDo0NDM=#JP, Tokyo
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMTguMTgxLjE3Ni4xNjY6NDQz#JP, Tokyo 2
 ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzQuMjIwLjk5LjE5Mzo0NDM=#US, Dallas 2
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMTMuMjI5LjExMS4zOjQ0Mw==#HK, New Territories
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuMTYwLjEzNC4yMjM6NDQz#US, Dallas 2
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMTMuMjMxLjI0OC4xNDY6NDQz#HK, Kowloon
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVANTcuMTgwLjMxLjU2OjQ0Mw==#JP, Tokyo 2
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMTguMTgyLjYuODg6NDQz#JP, Osaka
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuODkuMTMxLjEzNDo0NDM=#HK, Los Angeles
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMy4xMTIuMjE2LjEyNzo0NDM=#TW, Taipei
+ss://YWVzLTI1Ni1jZmI6YW1hem9uc2tyMDVAMzUuOTQuMTEwLjg5OjQ0Mw==#CA, Vancouver
+hysteria://185.22.155.71:63717?upmbps=11&downmbps=55&obfs=dongtaiwang.com&sni=apple.com#Hysteria1-185.22.155.71
+hysteria2://dongtaiwang.com@46.17.41.189:51224?upmbps=11&downmbps=55&sni=www.bing.com#Hysteria2-46.17.41.189
