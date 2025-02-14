@@ -37,38 +37,36 @@ jobs:
       env:
         WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK }}
       run: |
+        # 获取北京时间并格式化为中文时间戳
         UPDATE_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
 
-        # 一次性读取所需信息
-        read -r -d '' NEW_NODES TOTAL_NODES LATEST_NODES << EOF
-        $(tail -n 4 update_history.md | grep -oP '新增节点数: \K\d+' | tail -1 || echo 0)
-        $(wc -l < nodes.txt)
-        $(tail -n 5 nodes.txt | sed 's/"/\\"/g')
-        EOF
+        # 从日志文件获取最新新增节点数（确保读取最新的日志）
+        NEW_NODES=$(tail -n 4 update_history.md | grep -oP '新增节点数: \K\d+' | tail -1)
+        NEW_NODES=${NEW_NODES:-0}  # 如果 NEW_NODES 为空，设置为 0
 
-        # 构建消息内容 (根据新增节点数判断)
-        if [ "$NEW_NODES" -gt 0 ]; then
-            MESSAGE_CONTENT="**🔄 节点更新通知**\n
+        # 在同一个步骤中读取节点总数和最新节点列表
+        TOTAL_NODES=$(wc -l < nodes.txt)
+        LATEST_NODES=$(tail -n 5 nodes.txt | sed 's/"/\\"/g')
+
+        # 构建JSON消息体
+        MESSAGE_JSON=$(cat <<EOF
+        {
+          "msgtype": "markdown",
+          "markdown": {
+            "content": "**🔄 节点更新通知**\n
             > **更新时间**: \`${UPDATE_TIME}\`\n
             > **新增节点数**: \`${NEW_NODES}\`\n
             > **节点总数**: \`${TOTAL_NODES}\`\n\n
             **最新节点列表**:\n
             \`\`\`\n
             ${LATEST_NODES}
-            \`\`\`\n
-            [查看更新详情](https://github.com/${{ github.repository }}/commits/main)"
-        else
-          MESSAGE_CONTENT="**🔄 节点更新通知**\n
-            > **更新时间**: \`${UPDATE_TIME}\`\n
-            > 本次更新无新增节点。\n
-            > **节点总数**: \`${TOTAL_NODES}\`\n
-            [查看更新详情](https://github.com/${{ github.repository }}/commits/main)"
-        fi
+            \`\`\`"
+          }
+        }
+        EOF
+        )
 
-        MESSAGE_JSON=$(jq -n \
-          --arg content "$MESSAGE_CONTENT" \
-          '{msgtype: "markdown", markdown: {content: $content}}')
-
-        curl -s -f -X POST "$WEBHOOK_URL" \
+        # 发送请求
+        curl -X POST "$WEBHOOK_URL" \
           -H "Content-Type: application/json" \
           -d "$MESSAGE_JSON"
