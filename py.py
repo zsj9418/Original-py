@@ -14,7 +14,7 @@ os.environ['TZ'] = 'Asia/Shanghai'
 time.tzset()
 
 # --- 常量定义 ---
-MAX_HISTORY = 4
+MAX_HISTORY = 3
 HISTORY_FILE = "nodes.txt"
 LOG_FILE = "update_history.md"
 HYSTERIA_URLS = [
