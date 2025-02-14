@@ -83,9 +83,9 @@ def fetch_hysteria_nodes():
 def maintain_history(new_nodes):
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding='utf-8') as f:
-            history = deque(f.read().splitlines(), MAX_HISTORY*20)
+            history = deque(f.read().splitlines(), MAX_HISTORY*12)
     else:
-        history = deque(maxlen=MAX_HISTORY*20)
+        history = deque(maxlen=MAX_HISTORY*12)
 
     unique_nodes = set(history)
     added_nodes = [n for n in new_nodes if n not in unique_nodes]
