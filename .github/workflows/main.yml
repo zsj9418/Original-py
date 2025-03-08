@@ -1,9 +1,9 @@
 name: Update PY
 
 on:
-  schedule:
-    - cron: '0 */12 * * *'  # 每12小时运行一次
-      timezone: Asia/Shanghai
+  # schedule:
+  #  - cron: '0 */12 * * *'  # 每12小时运行一次
+  #    timezone: Asia/Shanghai
   workflow_dispatch:
 
 jobs:
